@@ -1,0 +1,133 @@
+# ============================================================================
+# AI-Driven Sky130 ASIC Platform - Docker Compose Configuration
+# ============================================================================
+
+services:
+
+  # ==========================================================================
+  # Main EDA Container (Sky130 + Tools)
+  # ==========================================================================
+  eda-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.sky130
+    image: sky130-eda-platform:latest
+    container_name: sky130_eda
+    hostname: sky130-platform
+
+    volumes:
+      # Mount project directories
+      - ../backend:/home/eda/backend
+      - ../circuits:/home/eda/circuits
+      - ../ai_engine:/home/eda/ai_engine
+      - ../tools:/home/eda/tools
+      - ../tests:/home/eda/tests
+      - ../data:/home/eda/data
+
+      # Mount existing projects
+      - ./projects:/home/eda/projects
+
+    working_dir: /home/eda
+
+    ports:
+      - "8000:8000" # FastAPI
+      - "5555:5555" # Celery Flower
+
+    environment:
+      - PDK_ROOT=/opt/sky130_pdk
+      - SKY130_PDK=/opt/sky130_pdk/sky130A
+      - PDK=sky130A
+      - PYTHONPATH=/home/eda
+      - DEBUG=true
+
+    networks:
+      - eda-network
+
+    # Keep container running
+    tty: true
+    stdin_open: true
+
+    command: /bin/bash
+
+  # ==========================================================================
+  # Redis (for Celery task queue)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: eda_redis
+
+    ports:
+      - "6379:6379"
+
+    networks:
+      - eda-network
+
+    volumes:
+      - redis-data:/data
+
+    command: redis-server --appendonly yes
+
+  # ==========================================================================
+  # PostgreSQL Database (optional, for production)
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: eda_postgres
+
+    environment:
+      - POSTGRES_DB=eda_platform
+      - POSTGRES_USER=eda
+      - POSTGRES_PASSWORD=eda_password
+
+    ports:
+      - "5432:5432"
+
+    networks:
+      - eda-network
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  # ==========================================================================
+  # Celery Worker (optional, for async tasks)
+  # ==========================================================================
+  # celery-worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.sky130
+  #   image: sky130-eda-platform:latest
+  #   container_name: eda_celery_worker
+  #   
+  #   volumes:
+  #     - ../backend:/home/eda/backend
+  #     - ../circuits:/home/eda/circuits
+  #     - ../ai_engine:/home/eda/ai_engine
+  #     - ../tools:/home/eda/tools
+  #     - ../data:/home/eda/data
+  #   
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #     - PDK_ROOT=/opt/sky130_pdk
+  #     - SKY130_PDK=/opt/sky130_pdk/sky130A
+  #   
+  #   depends_on:
+  #     - redis
+  #   
+  #   networks:
+  #     - eda-network
+  #   
+  #   command: celery -A backend.app.celery worker --loglevel=info
+
+  # ============================================================================
+  # Networks
+  # ============================================================================
+networks:
+  eda-network:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  redis-data:
+  postgres-data:

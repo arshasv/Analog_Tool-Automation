@@ -1,0 +1,231 @@
+# ============================================================================
+# AI-Driven Sky130 ASIC Platform - Enhanced Docker Image
+# ============================================================================
+# Includes: Ngspice, Sky130 PDK, Magic VLSI, KLayout, Netgen, Python EDA stack
+# ============================================================================
+
+FROM ubuntu:24.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# ============================================================================
+# Stage 1: Base System & Build Tools
+# ============================================================================
+
+RUN apt-get update && apt-get install -y \
+    # Build essentials
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    autoconf \
+    automake \
+    libtool \
+    pkg-config \
+    bison \
+    flex \
+    gawk \
+    # X11 & Graphics libraries
+    libx11-6 \
+    libx11-dev \
+    libxaw7-dev \
+    libxmu-dev \
+    libxpm-dev \
+    libxext-dev \
+    libxft-dev \
+    libxrender-dev \
+    libcairo2-dev \
+    # Tcl/Tk
+    tcl-dev \
+    tk-dev \
+    tcllib \
+    # Other libraries
+    libreadline-dev \
+    libfftw3-dev \
+    libncurses5-dev \
+    libglu1-mesa-dev \
+    libgl1-mesa-dev \
+    libgsl-dev \
+    # Python
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    # Utilities
+    ca-certificates \
+    vim \
+    nano \
+    less \
+    xterm \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================================
+# Stage 2: Ngspice (from local source)
+# ============================================================================
+
+WORKDIR /opt
+COPY ngspice-39 /opt/ngspice-39
+
+RUN cd /opt/ngspice-39 && \
+    ./configure \
+        --enable-xspice \
+        --enable-cider \
+        --enable-openmp \
+        --with-readline=yes \
+        --with-ngshared \
+        --enable-predictor && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# ============================================================================
+# Stage 3: Sky130 PDK (open_pdks)
+# ============================================================================
+
+WORKDIR /opt
+
+# Clone open_pdks repository
+RUN git clone --depth 1 https://github.com/RTimothyEdwards/open_pdks.git open_pdks && \
+    cd open_pdks && \
+    ./configure \
+        --enable-sky130-pdk=/opt/sky130_pdk \
+        --with-sky130-source=https://github.com/google/skywater-pdk \
+        --with-sky130-variants=sky130A && \
+    make && \
+    make install
+
+# Set PDK environment variables
+ENV PDK_ROOT=/opt/sky130_pdk
+ENV SKY130_PDK=$PDK_ROOT/sky130A
+ENV PDK=sky130A
+
+# ============================================================================
+# Stage 4: Magic VLSI Layout Tool
+# ============================================================================
+
+WORKDIR /opt
+
+RUN git clone --depth 1 https://github.com/RTimothyEdwards/magic.git magic-src && \
+    cd magic-src && \
+    ./configure \
+        --prefix=/usr/local \
+        --with-tcl=/usr/lib/tcl8.6 \
+        --with-tk=/usr/lib/tk8.6 && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# ============================================================================
+# Stage 5: Netgen LVS Tool
+# ============================================================================
+
+WORKDIR /opt
+
+RUN git clone --depth 1 https://github.com/RTimothyEdwards/netgen.git netgen-src && \
+    cd netgen-src && \
+    ./configure --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# ============================================================================
+# Stage 6: KLayout (with Python API)
+# ============================================================================
+
+WORKDIR /opt
+
+RUN apt-get update && apt-get install -y \
+    qt5-default \
+    qttools5-dev \
+    libqt5xmlpatterns5-dev \
+    libqt5designer5 \
+    libqt5svg5-dev \
+    ruby \
+    ruby-dev \
+    python3-pyqt5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build KLayout from source with Python bindings
+RUN git clone --depth 1 --branch v0.29.0 https://github.com/KLayout/klayout.git klayout-src && \
+    cd klayout-src && \
+    ./build.sh -j$(nproc) -python /usr/bin/python3
+
+ENV PATH="/opt/klayout-src/bin-release:$PATH"
+
+# ============================================================================
+# Stage 7: Python Environment & EDA Libraries
+# ============================================================================
+
+# Create virtual environment
+RUN python3 -m venv /opt/eda-venv
+ENV PATH="/opt/eda-venv/bin:$PATH"
+ENV VIRTUAL_ENV="/opt/eda-venv"
+
+# Upgrade pip
+RUN pip install --upgrade pip setuptools wheel
+
+# Install core Python EDA packages
+RUN pip install \
+    # Circuit simulation
+    PySpice \
+    numpy \
+    scipy \
+    matplotlib \
+    # Data science & ML
+    pandas \
+    scikit-learn \
+    # Optimization
+    pymoo \
+    deap \
+    # Web framework
+    fastapi \
+    uvicorn[standard] \
+    pydantic \
+    pydantic-settings \
+    # Database
+    sqlalchemy \
+    alembic \
+    # Task queue
+    celery \
+    redis \
+    # Utilities
+    python-dotenv \
+    click \
+    tqdm \
+    rich \
+    # Testing
+    pytest \
+    pytest-asyncio
+
+# Install PyTorch (CPU version for AI engine)
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# ============================================================================
+# Stage 8: User Setup & Workspace
+# ============================================================================
+
+# Create non-root user
+RUN useradd -ms /bin/bash eda && \
+    mkdir -p /home/eda/{projects,backend,circuits,ai_engine,tools,data} && \
+    chown -R eda:eda /home/eda && \
+    # Allow access to PDK
+    chown -R eda:eda /opt/sky130_pdk
+
+USER eda
+WORKDIR /home/eda
+
+# Add welcome message
+RUN echo 'export PS1="\[\033[01;32m\]eda@sky130\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "' >> ~/.bashrc && \
+    echo 'echo "╔════════════════════════════════════════════════════╗"' >> ~/.bashrc && \
+    echo 'echo "║  AI-Driven Sky130 ASIC Platform                   ║"' >> ~/.bashrc && \
+    echo 'echo "║  PDK: Sky130A | Tools: Magic, KLayout, Netgen     ║"' >> ~/.bashrc && \
+    echo 'echo "╚════════════════════════════════════════════════════╝"' >> ~/.bashrc && \
+    echo 'echo ""' >> ~/.bashrc
+
+# ============================================================================
+# Entry Point
+# ============================================================================
+
+CMD ["/bin/bash"]
