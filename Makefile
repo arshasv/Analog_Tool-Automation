@@ -2,7 +2,7 @@
 # AI-Driven Sky130 ASIC Platform - Makefile
 # ============================================================================
 
-.PHONY: help build up down restart shell logs clean test
+.PHONY: help build up down restart shell logs clean test backend simulate quickstart
 
 # Default target
 help:

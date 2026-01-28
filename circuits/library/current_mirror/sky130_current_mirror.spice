@@ -1,0 +1,64 @@
+* Sky130 Current Mirror
+* Sky130 NMOS Current Mirror
+* Reference Current: 10.00 μA
+* Mirror Ratio: 1:1
+
+.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* Supply
+Vdd vdd 0 DC 1.8
+
+* Reference current source
+Iref vdd ref 1e-05
+
+* Sky130 NMOS transistors
+X1 ref ref 0 0 sky130_fd_pr__nfet_01v8 w=2.0 l=0.5 nf=1 mult=1
+X2 out ref 0 0 sky130_fd_pr__nfet_01v8 w=2.0 l=0.5 nf=1 mult=1
+
+* Load resistor to measure output current
+Rload out 0 1k
+
+* Operating point analysis
+.op
+
+* DC sweep for characterization
+.dc Vdd 0 1.8 0.1
+
+* AC analysis  
+.ac dec 10 1 1G
+
+.control
+run
+
+* Operating point results
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Sky130 Current Mirror - Operating Point"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+print all
+
+* Calculate currents
+let iref_actual = @m.x1.msky130_fd_pr__nfet_01v8[id]
+let iout_actual = @m.x2.msky130_fd_pr__nfet_01v8[id]
+let mirror_error = (iout_actual - iref_actual*1)/(iref_actual*1)*100
+
+echo ""
+echo "Reference Current (M1): " iref_actual "A"
+echo "Output Current (M2):    " iout_actual "A"
+echo "Expected Iout:          " iref_actual*1 "A"
+echo "Mirror Error:           " mirror_error "%"
+echo ""
+
+* Calculate output resistance
+let rout = 1/@m.x2.msky130_fd_pr__nfet_01v8[gds]
+echo "Output Resistance:      " rout "Ω"
+
+* Save results
+set wr_singlescale
+set wr_vecnames
+option numdgt=3
+wrdata sky130_cm_results.csv iref_actual iout_actual
+
+quit
+.endc
+
+.end

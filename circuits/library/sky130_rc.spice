@@ -1,0 +1,35 @@
+* Sky130 RC Transient
+* Generated using Sky130 PDK
+
+.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* Power supply
+Vdd vdd 0 DC 1.8
+Vin vin 0 DC 0 PULSE(0 1.8 1n 1n 1n 5u 10u)
+
+* Sky130 Devices
+R1 vin vout 10000.0
+C1 vout 0 10.0p
+
+* Analysis
+.tran 100n 20u
+.control
+run
+* Write results
+set wr_singlescale
+set wr_vecnames
+option numdgt=3
+wrdata sky130_rc_results.csv time v(vin) v(vout)
+
+* Calculate time constant
+meas tran tau_meas trig v(vin) val=0.9 rise=1 targ v(vout) val=1.1378160000000002 rise=1
+print tau_meas
+
+* Calculate settling time
+meas tran t_settle trig v(vin) val=0.9 rise=1 targ v(vout) val=1.71 rise=1
+print t_settle
+
+quit
+.endc
+
+.end

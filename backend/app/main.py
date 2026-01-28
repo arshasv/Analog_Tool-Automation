@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 from app.core.config import settings
-from app.api import circuits, simulate, layout, verify, optimize, jobs
+# from app.api import circuits, simulate, layout, verify, optimize, jobs
 
 # Configure logging
 logging.basicConfig(

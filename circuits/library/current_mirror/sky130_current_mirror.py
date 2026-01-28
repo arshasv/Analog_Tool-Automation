@@ -107,8 +107,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 print all
 
 * Calculate currents
-let iref_actual = @m.xm1.msky130_fd_pr__nfet_01v8[id]
-let iout_actual = @m.xm2.msky130_fd_pr__nfet_01v8[id]
+let iref_actual = @m.x1.msky130_fd_pr__nfet_01v8[id]
+let iout_actual = @m.x2.msky130_fd_pr__nfet_01v8[id]
 let mirror_error = (iout_actual - iref_actual*{self.mirror_ratio})/(iref_actual*{self.mirror_ratio})*100
 
 echo ""
@@ -119,7 +119,7 @@ echo "Mirror Error:           " mirror_error "%"
 echo ""
 
 * Calculate output resistance
-let rout = 1/@m.xm2.msky130_fd_pr__nfet_01v8[gds]
+let rout = 1/@m.x2.msky130_fd_pr__nfet_01v8[gds]
 echo "Output Resistance:      " rout "Ω"
 
 * Save results

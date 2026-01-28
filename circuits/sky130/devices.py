@@ -9,16 +9,16 @@ from enum import Enum
 
 class DeviceType(str, Enum):
     """Sky130 device types"""
-    NMOS = "nfet_01v8"
-    NMOS_LVT = "nfet_01v8_lvt"
-    PMOS = "pfet_01v8"
-    PMOS_HVT = "pfet_01v8_hvt"
-    NMOS_HV = "nfet_g5v0d10v5"
-    PMOS_HV = "pfet_g5v0d10v5"
-    RES_HIGH_PO = "res_high_po"
-    RES_GENERIC_PO = "res_generic_po"
-    CAP_MIM = "cap_mim_m3_1"
-    CAP_MIM_M4 = "cap_mim_m3_2"
+    NMOS = "sky130_fd_pr__nfet_01v8"
+    NMOS_LVT = "sky130_fd_pr__nfet_01v8_lvt"
+    PMOS = "sky130_fd_pr__pfet_01v8"
+    PMOS_HVT = "sky130_fd_pr__pfet_01v8_hvt"
+    NMOS_HV = "sky130_fd_pr__nfet_g5v0d10v5"
+    PMOS_HV = "sky130_fd_pr__pfet_g5v0d10v5"
+    RES_HIGH_PO = "sky130_fd_pr__res_high_po"
+    RES_GENERIC_PO = "sky130_fd_pr__res_generic_po"
+    CAP_MIM = "sky130_fd_pr__cap_mim_m3_1"
+    CAP_MIM_M4 = "sky130_fd_pr__cap_mim_m3_2"
 
 
 @dataclass
@@ -55,7 +55,7 @@ class Sky130MOSFET(Sky130Device):
     def to_spice(self, drain: str, gate: str, source: str, body: str) -> str:
         """Generate SPICE netlist for MOSFET"""
         params = " ".join([f"{k}={v}" for k, v in self.parameters.items()])
-        return f"M{self.name} {drain} {gate} {source} {body} {self.model} {params}"
+        return f"X{self.name} {drain} {gate} {source} {body} {self.model} {params}"
     
     def area(self) -> float:
         """Calculate total device area in um²"""
