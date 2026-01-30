@@ -105,9 +105,9 @@ WORKDIR /opt
 # Ensure magic is available and install PDK
 RUN which magic && \
     mkdir -p /opt/sky130_pdk && \
-    git clone --depth 1 https://github.com/RTimothyEdwards/open_pdks.git open_pdks && \
+    git clone https://github.com/RTimothyEdwards/open_pdks.git open_pdks && \
     cd open_pdks && \
-    ./configure --enable-sky130-pdk=/opt/sky130_pdk && \
+    ./configure --enable-sky130-pdk && \
     make && \
     make install
 
