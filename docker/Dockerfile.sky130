@@ -53,6 +53,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-venv \
     python3-dev \
+    # EDA Tools
+    ngspice \
     # Utilities
     ca-certificates \
     vim \

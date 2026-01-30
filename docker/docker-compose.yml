@@ -34,8 +34,8 @@ services:
       - "5555:5555" # Celery Flower
 
     environment:
-      - PDK_ROOT=/opt/sky130_pdk
-      - SKY130_PDK=/opt/sky130_pdk/sky130A
+      - PDK_ROOT=/usr/local/share/pdk
+      - SKY130_PDK=/usr/local/share/pdk/sky130A
       - PDK=sky130A
       - PYTHONPATH=/home/eda
       - DEBUG=true

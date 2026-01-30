@@ -49,7 +49,7 @@ class SmartLDO(OptimizableCircuit):
         
         # Test Load Step: 0mA -> 50mA
         netlist = f"""* AI Optimized LDO Transient Test
-.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
 
 * Supply (VIN is 2.2V for 1.8V output)
 Vunreg vin 0 DC 2.2

@@ -72,8 +72,8 @@ class TwoStageOpAmp:
         spice += self.m6.to_spice(node_out, node_vbias, node_vss, node_vss) + "\n"
         
         # --- COMPENSATION ---
-        spice += f"Cc {self.name} {stage1_out} {comp_node} {self.cc}\n"
-        spice += f"Rz {self.name} {comp_node} {node_out} {self.rz}\n"
+        spice += f"Cc_{self.name} {stage1_out} {comp_node} {self.cc}\n"
+        spice += f"Rz_{self.name} {comp_node} {node_out} {self.rz}\n"
         
         return spice
 

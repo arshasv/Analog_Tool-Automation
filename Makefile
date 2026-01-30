@@ -11,13 +11,33 @@ optimize:
 	@echo "~~~~Starting AI Design Agent (Closed Loop)~~~~"
 	@docker exec -it sky130_eda bash -c "PYTHONPATH=/home/eda python3 /home/eda/circuits/library/custom/optimizer.py"
 
-.PHONY: help build up down restart shell logs clean test backend simulate quickstart automate optimize custom
+# Full End-to-End Demo (Optimize -> Layout -> GDS)
+demo:
+	@echo "~~~~Running End-to-End ASIC Flow Demo~~~~"
+	@echo "Available circuits: smart_opamp, smart_vco, smart_ldo, smart_mirror, smart_diff_pair"
+	@read -p "Enter circuit name: " circuit; \
+	docker exec -it sky130_eda bash -c "PYTHONPATH=/home/eda python3 /home/eda/circuits/generators/demo_master.py $$circuit"
+
+# Run specific circuit optimization
+run:
+	@docker exec -it sky130_eda bash -c "PYTHONPATH=/home/eda python3 /home/eda/circuits/library/custom/optimizer.py $(name)"
+
+# Fix dependencies if needed
+setup:
+	@docker exec -u root sky130_eda apt-get update && docker exec -u root sky130_eda apt-get install -y ngspice
+
+.PHONY: help build up down restart shell logs clean test backend simulate quickstart automate optimize custom demo run setup
 
 # Default target
 help:
 	@echo "╔════════════════════════════════════════════════════╗"
 	@echo "║  AI-Driven Sky130 ASIC Platform - Commands        ║"
 	@echo "╚════════════════════════════════════════════════════╝"
+	@echo "  make up       : Start the platform"
+	@echo "  make demo     : Start full end-to-end demo flow"
+	@echo "  make run name=<circuit> : Optimize specific circuit"
+	@echo "  make shell    : Enter container shell"
+	@echo "  make setup    : Install missing tool dependencies"
 	@echo ""
 	@echo "  make build        - Build Docker images"
 	@echo "  make up           - Start all services"

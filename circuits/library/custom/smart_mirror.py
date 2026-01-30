@@ -40,7 +40,7 @@ class SmartCurrentMirror(OptimizableCircuit):
         
         # 2. Generate Netlist
         netlist = f"""* AI Optimized Current Mirror
-.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
 Vdd vdd 0 DC 1.8
 Iref vdd ref {self.iref}
 {m1.to_spice("ref", "ref", "0", "0")}

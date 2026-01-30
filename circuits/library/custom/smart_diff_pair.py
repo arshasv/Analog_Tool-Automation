@@ -37,7 +37,7 @@ class SmartDiffPair(OptimizableCircuit):
         
         # Netlist for Differential Gain
         netlist = f"""* AI Optimized Diff Pair
-.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
 
 Vdd vdd 0 DC 1.8
 Vss 0 0 DC 0

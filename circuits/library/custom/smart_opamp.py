@@ -56,7 +56,7 @@ class SmartOpAmp(OptimizableCircuit):
         
         # Complete SPICE Netlist for AC analysis
         netlist = f"""* AI Optimized Op-Amp AC Analysis
-.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
 
 Vdd vdd 0 DC {self.vdd}
 Vbias vbias 0 DC {self.vbias}

@@ -31,15 +31,19 @@ class SmartVCO(OptimizableCircuit):
     def simulate(self, params: Dict[str, float]) -> Dict[str, float]:
         from circuits.library.building_blocks.vco_template import RingOscillatorVCO
         
+        # Robust stage count handling
+        stages = int(params.get('num_stages', 5))
+        if stages % 2 == 0: stages += 1 # Must be odd
+        
         vco = RingOscillatorVCO(
-            num_stages = int(params['num_stages']),
-            w_n = params['w_n'],
-            l_n = params['l_n']
+            num_stages = stages,
+            w_n = params.get('w_n', 2.0),
+            l_n = params.get('l_n', 0.15)
         )
         
         # Test at Vctrl = 0.9V (Center)
         netlist = f"""* AI Optimized VCO Transient Test
-.lib /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
 
 Vdd vdd 0 DC {self.vdd}
 Vctrl vctrl 0 DC 0.9
