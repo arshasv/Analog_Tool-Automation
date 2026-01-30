@@ -2,7 +2,16 @@
 # AI-Driven Sky130 ASIC Platform - Makefile
 # ============================================================================
 
-.PHONY: help build up down restart shell logs clean test backend simulate quickstart
+# Automation Targets
+automate:
+	@echo "~~~~Starting Fully Automated EDA~~~~"
+	@docker exec -it sky130_eda bash -c "PYTHONPATH=/home/eda python3 /home/eda/circuits/library/custom/runner.py"
+
+optimize:
+	@echo "~~~~Starting AI Design Agent (Closed Loop)~~~~"
+	@docker exec -it sky130_eda bash -c "PYTHONPATH=/home/eda python3 /home/eda/circuits/library/custom/optimizer.py"
+
+.PHONY: help build up down restart shell logs clean test backend simulate quickstart automate optimize custom
 
 # Default target
 help:
