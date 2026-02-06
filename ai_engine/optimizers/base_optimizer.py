@@ -18,6 +18,8 @@ class OptimizationMethod(str, Enum):
     GENETIC_ALGORITHM = "genetic_algorithm"
     BAYESIAN = "bayesian"
     PARTICLE_SWARM = "particle_swarm"
+    NEURAL_TURBO = "neural_turbo"
+    BAYESIAN_NN = "bayesian_nn"  # New: Bayesian with neural surrogate
 
 
 @dataclass
@@ -70,14 +72,37 @@ class ObjectiveSpec:
     minimize: bool = True
     tolerance: float = 0.1  # 10% tolerance
     
+    # NEW: Constraint support
+    constraint_type: Optional[str] = None  # None, ">=", "<=", "=="
+    is_hard_constraint: bool = False  # If True, violation = infeasible design
+    
     def calculate_error(self, actual: float) -> float:
         """Calculate weighted error"""
-        if self.minimize:
+        if self.target == 0:
+            error = actual
+        elif self.minimize:
             error = (actual - self.target) / self.target
         else:
             error = (self.target - actual) / self.target
         
         return abs(error) * self.weight
+    
+    def check_constraint(self, actual: float) -> bool:
+        """Check if constraint is satisfied"""
+        if self.constraint_type is None:
+            return True  # Not a constraint
+        
+        # Check with tolerance
+        threshold = self.target * (1.0 + self.tolerance)
+        
+        if self.constraint_type == ">=":
+            return actual >= self.target * (1 - self.tolerance)
+        elif self.constraint_type == "<=":
+            return actual <= threshold
+        elif self.constraint_type == "==":
+            return abs(actual - self.target) <= abs(self.target) * self.tolerance
+        else:
+            return True
 
 
 @dataclass
@@ -386,5 +411,11 @@ def create_optimizer(
         return RandomSearchOptimizer(parameter_spaces, objectives, **kwargs)
     elif method == OptimizationMethod.PARTICLE_SWARM:
         return ParticleSwarmOptimizer(parameter_spaces, objectives, **kwargs)
+    elif method == OptimizationMethod.NEURAL_TURBO:
+        from ai_engine.optimizers.neural_turbo import NeuralTurboOptimizer
+        return NeuralTurboOptimizer(parameter_spaces, objectives, **kwargs)
+    elif method == OptimizationMethod.BAYESIAN_NN:
+        from ai_engine.optimizers.bayesian_optimizer import BayesianOptimizer
+        return BayesianOptimizer(parameter_spaces, objectives, **kwargs)
     else:
         raise ValueError(f"Unsupported optimization method: {method}")

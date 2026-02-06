@@ -20,7 +20,7 @@ def run_full_flow(circuit_name: str):
     print("="*80)
 
     # 1. AI OPTIMIZATION
-    result = run_agentic_optimization(circuit_name)
+    result, circuit = run_agentic_optimization(circuit_name)
     if not result or not result.best_parameters:
         print("❌ Optimization failed to yield valid parameters. Aborting.")
         return
@@ -29,42 +29,45 @@ def run_full_flow(circuit_name: str):
     print(f"\n✅ AI Optimization Phase Complete.")
     print(f"Optimal Parameters: {best_params}")
 
+    # Define output path
+    output_dir = Path("/home/eda/data/results")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_base = output_dir / f"{circuit_name}_optimized"
+
     # 2. LAYOUT GENERATION
     print("\n" + "="*40)
-    print("🎨 PHASE 2: AUTOMATED LAYOUT GENERATION")
+    print("🎨 PHASE 2: AUTOMATED LAYOUT SYNTHESIS")
     print("="*40)
     
     gen = MagicLayoutGenerator()
     
-    # We need to determine device type based on circuit name (simplification for demo)
-    device_type = "nfet_01v8"
-    if "pmos" in circuit_name.lower() or "pfet" in circuit_name.lower():
-        device_type = "pfet_01v8"
+    # Check if the circuit has its own layout generator
+    if hasattr(circuit, 'generate_layout'):
+        print(f"🧬 Using custom layout generator for {circuit_name}...")
+        print(f"\n📊 Applying optimized parameters to layout:")
+        for key, val in best_params.items():
+            print(f"   • {key}: {val:.4f}")
         
-    # Robust parameter extraction
-    width = best_params.get('width') or best_params.get('w_diff') or next((v for k,v in best_params.items() if 'w' in k.lower()), 2.0)
-    length = best_params.get('length') or best_params.get('l_diff') or next((v for k,v in best_params.items() if 'l' in k.lower()), 0.15)
+        tcl = circuit.generate_layout(best_params)
+        print(f"\n✨ Generated {len(tcl.split(chr(10)))} lines of Magic TCL")
+    else:
+        print(f"⚠️ Using generic representative layout for {circuit_name}...")
+        # ... (Generic logic)
+        tcl = f"drc off\nmagic::gencell sky130::sky130_fd_pr__nfet_01v8 {{w 2.0 l 0.15}}\n"
+
+    # NEW: Brain-to-Layout Feedback Loop
+    print("\n🤖 Activating Layout Intelligence Agent...")
+    from tools.layout.layout_agent import LayoutIntelligenceAgent
+    agent = LayoutIntelligenceAgent(circuit_name)
+    refined_tcl = agent.refine_layout(tcl, max_attempts=2)
     
-    # Generate Tcl script
-    tcl = f"""
-# Magic layout for {circuit_name}
-drc off
-"""
-    # Simply place two transistors as a representative layout for the demo
-    tcl += f"magic::gencell sky130::sky130_fd_pr__{device_type} {{w {width} l {length}}}\n"
-    tcl += "box move 10um 0\n"
-    tcl += f"magic::gencell sky130::sky130_fd_pr__{device_type} {{w {width} l {length}}}\n"
-    tcl += f"""
-select top cell
-expand
-flatten {circuit_name}_flat
-load {circuit_name}_flat
-save {circuit_name}_optimized.mag
-exit
-"""
+    # Ensure it saves to the right path
+    final_tcl = refined_tcl + f"\nselect top cell\nexpand\nflatten {circuit_name}_flat\nload {circuit_name}_flat\nsave {output_base}.mag\nexit\n"
     
-    if gen.create_layout(f"{circuit_name}_optimized", tcl):
-        print(f"✨ Layout saved to {circuit_name}_optimized.mag")
+    print(f"\n💾 Saving layout to: {output_base}.mag")
+    if gen.create_layout(str(output_base), final_tcl):
+        print(f"✨ Layout generation COMPLETE!")
+        print(f"   File size: {os.path.getsize(f'{output_base}.mag')} bytes")
     else:
         print("❌ Layout generation failed.")
         return
@@ -75,24 +78,34 @@ exit
     print("="*40)
     
     pv = PhysicalVerificationFlow()
-    # Create a dummy schematic for LVS demo
-    schematic_spice = f"{circuit_name}_schematic.spice"
+    schematic_spice = output_dir / f"{circuit_name}_schematic.spice"
     with open(schematic_spice, "w") as f:
         f.write(f"* {circuit_name} schematic\n.end\n")
         
-    verification_results = pv.verify_design(f"{circuit_name}_optimized", schematic_spice)
+    verification_results = pv.verify_design(str(output_base), str(schematic_spice))
+    
+    # 3.1 LVS Intelligence Report
+    lvs_report_path = f"{output_base}_lvs.log"
+    lvs_analysis = agent.analyze_lvs_report(lvs_report_path)
+    
+    if lvs_analysis["status"] == "analyzed":
+        print(f"\n📊 LVS Intelligence Report:")
+        print(f"   Substrate warnings: {lvs_analysis['substrate_warnings']}")
+        print(f"   AI fixes applied: {'Yes' if lvs_analysis['fixes_applied'] else 'No'}")
+        print(f"   Recommendation: {lvs_analysis['recommendation']}")
 
     # 4. GDSII EXPORT
     print("\n" + "="*40)
     print("📦 PHASE 4: GDSII EXPORT (TAPE-OUT READY)")
     print("="*40)
     
-    gds_file = gen.generate_gds(f"{circuit_name}_optimized")
+    gds_file = gen.generate_gds(str(output_base))
     
     if gds_file:
         print("="*80)
         print("🎉 SUCCESS! YOUR CIRCUIT IS READY FOR MANUFACTURING.")
         print(f"Final File: {Path(gds_file).absolute()}")
+        print(f"Host Location: data/results/{Path(gds_file).name}")
         print("="*80)
     else:
         print("❌ GDSII Export failed.")

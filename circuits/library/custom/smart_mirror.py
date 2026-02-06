@@ -67,6 +67,23 @@ quit
         
         return {"iout": iout}
 
+    def generate_layout(self, params: Dict[str, float]) -> str:
+        w = params['width']
+        l = params['length']
+        
+        tcl = "drc off\n"
+        # Reference Transistor
+        tcl += f"magic::gencell sky130::sky130_fd_pr__nfet_01v8 {{w {w} l {l}}}\n"
+        tcl += "label ref_gate -center gate\n"
+        
+        # Move and place Output Transistors (matched)
+        for i in range(int(self.ratio)):
+            tcl += f"box move 15um 0\n"
+            tcl += f"magic::gencell sky130::sky130_fd_pr__nfet_01v8 {{w {w} l {l}}}\n"
+            tcl += f"label iout_{i} -center drain\n"
+            
+        return tcl
+
 if __name__ == "__main__":
     # Test simulation
     mirror = SmartCurrentMirror()

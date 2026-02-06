@@ -55,8 +55,14 @@ def run_agentic_optimization(target_script: str = None):
     objectives = circuit.get_objectives()
     
     # 2. Create the Optimizer
+    # Default to Neural-TuRBO if specified, otherwise Particle Swarm
+    opt_method = OptimizationMethod.PARTICLE_SWARM
+    if os.environ.get("USE_NEURAL_TURBO") == "1":
+        opt_method = OptimizationMethod.NEURAL_TURBO
+        print("🤖 Using Neural-TuRBO (Surrogate-Assisted Optimization)")
+
     optimizer = create_optimizer(
-        method=OptimizationMethod.PARTICLE_SWARM,
+        method=opt_method,
         parameter_spaces=params,
         objectives=objectives,
         max_iterations=10,
@@ -95,12 +101,15 @@ def run_agentic_optimization(target_script: str = None):
     for name, val in result.best_parameters.items():
         print(f"  ➜ {name}: {val:.4f}")
     
-    print("\n🚀 Verifying Final Design...")
-    final_metrics = circuit.simulate(result.best_parameters)
-    print(f"Final Performance: {final_metrics}")
+    if result.best_parameters:
+        print("\n🚀 Verifying Final Design...")
+        final_metrics = circuit.simulate(result.best_parameters)
+        print(f"Final Performance: {final_metrics}")
+    else:
+        print("\n⚠️ No valid parameters found for final verification.")
     print("━" * 60)
     
-    return result
+    return result, circuit
 
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else None

@@ -1,0 +1,9 @@
+* Generated netlist for proc_88095c509f31
+* Source: data/designs/uploads/proc_88095c509f31_current_mirror.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* iref = 1.5e-05
+* w = 3.0
+* L = 0.8
+.op
+.end

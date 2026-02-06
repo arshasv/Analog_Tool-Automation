@@ -1,0 +1,9 @@
+* Generated netlist for proc_584695cae42a
+* Source: data/designs/uploads/proc_584695cae42a_test_circuit.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* w = 2.0
+* l = 0.5
+* iref = 1e-05
+.op
+.end

@@ -1,0 +1,8 @@
+* Generated netlist for proc_daa49f028bf7
+* Source: data/designs/uploads/proc_daa49f028bf7_circuit.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* iref = 2e-05
+* length = 1.0
+.op
+.end

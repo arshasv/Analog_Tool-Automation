@@ -1,0 +1,52 @@
+* Sky130 NMOS Current Mirror (AI-Driven Design)
+.title Current Mirror - Automated Parametric Generation
+
+* ========== SKY130 PDK MODELS ==========
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* ========== SUPPLY PINS ==========
+Vdd vdd 0 DC 1.8
+
+* ========== REFERENCE BRANCH ==========
+* Controlled current source for reference
+Iref vdd ref 1e-05
+
+* M1: Diode-connected NMOS (reference leg)
+* Using sky130_fd_pr__nfet_01v8 from PDK
+* W/L = 2.0u/0.5u, multiplicity = 1
+M1 ref ref 0 0 sky130_fd_pr__nfet_01v8 W=2.0u L=0.5u NFIN=1 M=1
+
+* ========== MIRROR BRANCH ==========
+* M2: Output NMOS (with mirror ratio)
+* W/L = 2.0u/0.5u
+M2 iout ref 0 0 sky130_fd_pr__nfet_01v8 W=2.0u L=0.5u NFIN=1 M=1
+
+* ========== LOAD ==========
+* Load resistor to complete circuit
+Rload vdd iout 10k
+
+* ========== ANALYSIS ==========
+.control
+* Operating point
+op
+
+* DC analysis: sweep supply
+dc Vdd 0 1.8 0.01
+
+* AC analysis
+ac dec 10 1 1G
+
+* Transient analysis
+tran 0 100n 0 1n
+
+* Print key nodes
+print all
+
+* Save raw file
+set wr_singlescale
+set wr_vecnames
+option numdgt=6
+quit
+.endc
+
+.end

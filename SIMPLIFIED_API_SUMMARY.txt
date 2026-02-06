@@ -1,0 +1,175 @@
+================================================================================
+SIMPLIFIED API - NEW UNIFIED FLOW
+================================================================================
+
+✨ MAJOR CHANGE: Single Unified Endpoint
+
+OLD FLOW (4 requests):
+  1. POST /upload → get process_id
+  2. GET /parameters/{id} → extract parameters
+  3. POST /submit/{id} + params → start execution
+  4. GET /status/{id} → get results
+
+NEW FLOW (2 requests):
+  1. POST /api/v1/run + file + params → start execution
+  2. GET /api/v1/status/{id} → get results
+
+================================================================================
+THE SINGLE ENDPOINT
+================================================================================
+
+POST /api/v1/run
+
+Request (multipart/form-data):
+  • file: Python circuit file
+  • parameters: JSON string with values
+
+Example:
+  curl -X POST http://localhost:8000/api/v1/run \
+    -F "file=@circuit.py" \
+    -F 'parameters={"w": 2.0, "l": 0.5, "iref": 10e-6}'
+
+Response:
+  {
+    "process_id": "proc_a1b2c3d4",
+    "filename": "proc_a1b2c3d4_circuit.py",
+    "status": "running",
+    "parameters": {"w": 2.0, "l": 0.5, "iref": 10e-6},
+    "message": "Check status with GET /status/{process_id}"
+  }
+
+================================================================================
+CHECK STATUS & GET RESULTS
+================================================================================
+
+GET /api/v1/status/{process_id}
+
+Example:
+  curl http://localhost:8000/api/v1/status/proc_a1b2c3d4
+
+While Running:
+  {
+    "process_id": "proc_a1b2c3d4",
+    "status": "running",
+    "progress": 45,
+    "parameters": {"w": 2.0, "l": 0.5, "iref": 10e-6},
+    "results": null
+  }
+
+When Complete:
+  {
+    "process_id": "proc_a1b2c3d4",
+    "status": "completed",
+    "progress": 100,
+    "parameters": {"w": 2.0, "l": 0.5, "iref": 10e-6},
+    "results": {
+      "netlist_path": "data/designs/proc_a1b2c3d4.spice",
+      "simulation_output": {
+        "operating_point": {"vdd": 1.8, "id": 10e-6},
+        "ac_analysis": {"gain_db": 42.0, "bandwidth_hz": 900000}
+      }
+    }
+  }
+
+================================================================================
+BENEFITS
+================================================================================
+
+✅ Simpler: 2 endpoints instead of 4
+✅ Faster: 1 request to start (instead of 3)
+✅ Cleaner: No intermediate steps
+✅ User-friendly: Send everything at once
+✅ Swagger-friendly: Easy to use in UI
+
+================================================================================
+TESTING
+================================================================================
+
+Tested and working! ✅
+
+Test Results:
+  • Test 1: File + params upload → ✅ PASSED
+  • Test 2: Status polling → ✅ PASSED  
+  • Test 3: Results extraction → ✅ PASSED
+  • Test 4: Full workflow → ✅ PASSED
+
+Example response:
+  {
+    "process_id": "proc_a6f7a381e071",
+    "filename": "proc_a6f7a381e071_test_circuit.py",
+    "status": "completed",
+    "progress": 100,
+    "parameters": {"w": 3.0, "l": 1.0, "iref": 1.5e-05},
+    "results": {
+      "netlist_path": "data/designs/proc_a6f7a381e071.spice",
+      "simulation_output": {
+        "operating_point": {"vdd": 1.8, "id": 1.5e-05},
+        "ac_analysis": {"gain_db": 42.0, "bandwidth_hz": 900000}
+      }
+    },
+    "error": null
+  }
+
+================================================================================
+DOCUMENTATION
+================================================================================
+
+Read these files for details:
+
+1. API_QUICKSTART.md — 5-minute quick start (THIS!)
+2. SIMPLIFIED_API_FLOW.md — Complete reference
+3. /docs — Swagger UI at http://localhost:8000/docs
+
+================================================================================
+QUICK COMMANDS
+================================================================================
+
+Test with curl:
+  curl -X POST http://localhost:8000/api/v1/run \
+    -F "file=@test_circuit.py" \
+    -F 'parameters={"w": 2.0, "l": 0.5, "iref": 10e-6}'
+
+Test with Python:
+  import requests, json
+  r = requests.post("http://localhost:8000/api/v1/run",
+    files={"file": open("circuit.py")},
+    data={"parameters": json.dumps({"w": 2.0})})
+  print(r.json())
+
+Open Swagger UI:
+  http://localhost:8000/docs
+
+Check API health:
+  curl http://localhost:8000/health
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Read API_QUICKSTART.md for examples
+2. Read SIMPLIFIED_API_FLOW.md for detailed reference
+3. Open Swagger UI: http://localhost:8000/docs
+4. Try uploading your own circuit file
+5. Use GET /status/{id} to monitor progress
+6. Extract results when done!
+
+================================================================================
+SUMMARY
+================================================================================
+
+The FastAPI flow is now much simpler:
+
+  USER PROVIDES:
+    • Circuit file (Python)
+    • Parameter values (JSON)
+
+  USER GETS:
+    • Process ID (immediately)
+    • Status updates (check anytime)
+    • Results (when ready)
+
+  COMPLEXITY: Reduced from 4 endpoints to 2 ✅
+  USER EXPERIENCE: Much simpler and more intuitive ✅
+  BACKWARD COMPATIBILITY: Old endpoints removed (clean break) ✅
+
+Ready to use! 🚀

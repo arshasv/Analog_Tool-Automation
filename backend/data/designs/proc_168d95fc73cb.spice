@@ -1,0 +1,7 @@
+* Generated netlist for proc_168d95fc73cb
+* Source: data/designs/uploads/proc_168d95fc73cb_sky130_current_mirror.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* additionalProp1 = {}
+.op
+.end

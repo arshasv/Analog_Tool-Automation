@@ -1,0 +1,6 @@
+* Generated netlist for proc_97e30f7825e9
+* Source: data/designs/uploads/proc_97e30f7825e9_sky130_current_mirror.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+.op
+.end

@@ -1,0 +1,9 @@
+* Generated netlist for proc_a6f7a381e071
+* Source: data/designs/uploads/proc_a6f7a381e071_test_circuit.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* w = 3.0
+* l = 1.0
+* iref = 1.5e-05
+.op
+.end

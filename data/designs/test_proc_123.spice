@@ -1,0 +1,7 @@
+* Generated netlist for test_proc_123
+* Source: /home/eda/data/designs/uploads/tmp6xrnl4p7.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* iref = 1.5e-05
+.op
+.end

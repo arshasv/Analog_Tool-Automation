@@ -1,0 +1,34 @@
+* Current Mirror Circuit
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* Supply
+Vdd vdd 0 DC 1.8
+
+* Reference current source
+Iref vdd ref 1e-05
+
+* Sky130 NMOS devices (placeholder - actual model would be loaded from PDK)
+* M1 (reference, diode-connected)
+M1 ref ref 0 0 nfet_01v8 W=2.0u L=0.5u NF=1
+
+* M2 (mirror output)
+M2 out ref 0 0 nfet_01v8 W=2.0u L=0.5u NF=1
+
+* Load resistor
+Rload vdd out 1k
+
+* Analysis
+.op
+.dc Vdd 0 1.8 0.1
+.ac dec 10 1 1G
+
+.control
+run
+set wr_singlescale
+set wr_vecnames
+option numdgt=6
+print all
+quit
+.endc
+
+.end

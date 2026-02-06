@@ -1,0 +1,8 @@
+* Generated netlist for proc_0627eda7d562
+* Source: data/designs/uploads/proc_0627eda7d562_test_circuit.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* iref = 1e-05
+* vdd = 1.8
+.op
+.end

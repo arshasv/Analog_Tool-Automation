@@ -1,0 +1,7 @@
+* Generated netlist for proc_0d01c067caac
+* Source: data/designs/uploads/proc_0d01c067caac_rc_sky130_example.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+* additionalProp1 = {}
+.op
+.end

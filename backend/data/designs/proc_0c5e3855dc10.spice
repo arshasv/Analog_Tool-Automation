@@ -1,0 +1,6 @@
+* Generated netlist for proc_0c5e3855dc10
+* Source: data/designs/uploads/proc_0c5e3855dc10_smart_ldo.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+.op
+.end

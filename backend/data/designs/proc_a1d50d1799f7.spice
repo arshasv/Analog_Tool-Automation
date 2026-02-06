@@ -1,0 +1,6 @@
+* Generated netlist for proc_a1d50d1799f7
+* Source: data/designs/uploads/proc_a1d50d1799f7_sky130_current_mirror.py
+.include /opt/open_pdks/sky130/sky130A/libs.tech/ngspice/sky130.lib.spice
+* Parameters:
+.op
+.end

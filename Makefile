@@ -26,7 +26,7 @@ run:
 setup:
 	@docker exec -u root sky130_eda apt-get update && docker exec -u root sky130_eda apt-get install -y ngspice
 
-.PHONY: help build up down restart shell logs clean test backend simulate quickstart automate optimize custom demo run setup
+.PHONY: help build up down restart shell logs clean test backend simulate quickstart automate optimize custom demo run setup api test-api
 
 # Default target
 help:
@@ -48,6 +48,8 @@ help:
 	@echo "  make clean        - Clean data and caches"
 	@echo "  make test         - Run tests"
 	@echo "  make backend      - Start FastAPI backend"
+	@echo "  make api          - Start Circuit Pipeline API (localhost)"
+	@echo "  make test-api     - Test Circuit Pipeline API"
 	@echo "  make simulate     - Run example simulations"
 	@echo ""
 
@@ -98,6 +100,20 @@ test:
 backend:
 	@echo "🌐 Starting FastAPI backend..."
 	docker exec -it sky130_eda bash -c "cd /home/eda/backend && python3 -m app.main"
+
+# Start Circuit Pipeline API (localhost)
+api:
+	@echo "🌐 Starting Circuit Pipeline API on localhost..."
+	@echo "   Access API at: http://localhost:8000"
+	@echo "   Swagger UI: http://localhost:8000/docs"
+	cd backend && python3 -m app.main
+
+# Test Circuit Pipeline API
+test-api:
+	@echo "🧪 Testing Circuit Pipeline API..."
+	@echo "   Make sure API is running: make api"
+	@echo ""
+	python3 test_circuit_api_client.py
 
 # Run example simulations
 simulate:

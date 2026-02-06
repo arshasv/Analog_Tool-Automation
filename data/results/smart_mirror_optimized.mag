@@ -1,0 +1,93 @@
+magic
+tech sky130A
+magscale 1 2
+timestamp 1770094951
+<< pwell >>
+rect -53 -53 369 451
+<< nmos >>
+rect 143 157 173 241
+<< ndiff >>
+rect 85 229 143 241
+rect 85 169 97 229
+rect 131 169 143 229
+rect 85 157 143 169
+rect 173 229 231 241
+rect 173 169 185 229
+rect 219 169 231 229
+rect 173 157 231 169
+<< ndiffc >>
+rect 97 169 131 229
+rect 185 169 219 229
+<< psubdiff >>
+rect -17 381 79 415
+rect 237 381 333 415
+rect -17 319 17 381
+rect 299 319 333 381
+rect -17 17 17 79
+rect 299 17 333 79
+rect -17 -17 79 17
+rect 237 -17 333 17
+<< psubdiffcont >>
+rect 79 381 237 415
+rect -17 79 17 319
+rect 299 79 333 319
+rect 79 -17 237 17
+<< poly >>
+rect 125 313 191 329
+rect 125 279 141 313
+rect 175 279 191 313
+rect 125 263 191 279
+rect 143 241 173 263
+rect 143 135 173 157
+rect 125 119 191 135
+rect 125 85 141 119
+rect 175 85 191 119
+rect 125 69 191 85
+<< polycont >>
+rect 141 279 175 313
+rect 141 85 175 119
+<< locali >>
+rect -17 381 79 415
+rect 237 381 333 415
+rect -17 319 17 381
+rect 299 319 333 381
+rect 125 279 141 313
+rect 175 279 191 313
+rect 97 229 131 245
+rect 97 153 131 169
+rect 185 229 219 245
+rect 185 153 219 169
+rect 125 85 141 119
+rect 175 85 191 119
+rect -17 17 17 79
+rect 299 17 333 79
+rect -17 -17 79 17
+rect 237 -17 333 17
+<< viali >>
+rect 141 279 175 313
+rect 97 169 131 229
+rect 185 169 219 229
+rect 141 85 175 119
+<< metal1 >>
+rect 129 313 187 319
+rect 129 279 141 313
+rect 175 279 187 313
+rect 129 273 187 279
+rect 91 229 137 241
+rect 91 169 97 229
+rect 131 169 137 229
+rect 91 157 137 169
+rect 179 229 225 241
+rect 179 169 185 229
+rect 219 169 225 229
+rect 179 157 225 169
+rect 129 119 187 125
+rect 129 85 141 119
+rect 175 85 187 119
+rect 129 79 187 85
+<< labels >>
+rlabel psubdiffcont 158 0 158 0 0 w 20.0 l 2.0.B
+rlabel ndiffc 114 199 114 199 0 w 20.0 l 2.0.D
+rlabel ndiffc 202 199 202 199 0 w 20.0 l 2.0.S
+rlabel polycont 158 296 158 296 0 w 20.0 l 2.0.G
+<< end >>

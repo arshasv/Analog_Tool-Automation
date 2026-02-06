@@ -1,0 +1,6 @@
+* NGSPICE file created from smart_mirror_optimized.ext - technology: sky130A
+
+.subckt smart_mirror_optimized
+X0 w 20.0 l 2.0.S w 20.0 l 2.0.G w 20.0 l 2.0.D w 20.0 l 2.0.B sky130_fd_pr__nfet_01v8 ad=0.1218 pd=1.42 as=0.1218 ps=1.42 w=0.42 l=0.15
+.ends
+

@@ -45,7 +45,7 @@ RUN python3 -m venv /opt/pyspice-venv
 ENV PATH="/opt/pyspice-venv/bin:$PATH"
 
 RUN pip install --upgrade pip && \
-    pip install PySpice numpy matplotlib
+    pip install PySpice numpy matplotlib fastapi uvicorn python-multipart pydantic
 
 # -------------------------------------------------
 # 4. Create non-root user
