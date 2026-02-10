@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: xeda-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./work:/work
+      - ./pdk:/pdk:ro
+      - ./app:/app/app
+    environment:
+      - WORK_DIR=/work
+      - PDK_DIR=/pdk
+      - SKY130_PDK=/pdk/sky130A
+    restart: unless-stopped
