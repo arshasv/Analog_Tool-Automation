@@ -2,10 +2,6 @@
 
 This repository provides a scaffolded Dockerized FastAPI service to automate EDA simulations using ngspice and PySpice.
 
-Quick notes:
-- Place your Sky130 PDK (or symlink) under `./pdk` on the host before starting the container.
-- Work directory for uploads and outputs is `./work` (mounted into container as `/work`).
-
 Endpoints (Swagger available at `/docs`):
 - `POST /simulate` - upload a `.sp` (SPICE) or other file. Returns a `job_id`.
 - `GET /status/{job_id}` - check job status.
