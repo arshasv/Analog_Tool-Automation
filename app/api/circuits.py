@@ -1,29 +1,28 @@
-"""Circuit API: Simple unified single-endpoint flow - upload file and optional parameters"""
+"""Circuit API: Upload, Run, Status, Download (SPICE netlist + PNG)"""
 import uuid
 import os
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
-from typing import Dict, Any, Optional
-import json
-from app.models.circuit import (
-    CircuitRequest,
-    ProcessState,
-    ProcessStatus,
-    RunResponse,
-    StatusResponse,
-)
-from app.services.pipeline_executor import PipelineExecutor
-from fastapi.responses import StreamingResponse
 import io
+import json
+import logging
 import zipfile
-from app.utils.plotting import plot_simulation_output_png
+import glob
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
+
+from app.models.circuit import RunResponse, StatusResponse, ProcessStatus
+from app.services.pipeline_executor import PipelineExecutor
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["circuits"])
 
 
 @router.get("/debug/processes")
 async def debug_list_processes():
-    """Debug endpoint: list known process ids in memory (for dev only)."""
     return {"processes": list(PipelineExecutor.processes.keys())}
 
 
@@ -33,59 +32,27 @@ async def run_circuit(
     parameters: Optional[str] = Form(None),
     background_tasks: BackgroundTasks = None,
 ):
-    """
-    Upload circuit file with optional parameters.
-    
-    Request (multipart/form-data):
-      - file: Python circuit file (required)
-      - parameters: JSON string with parameter values (optional)
-        If not provided, uses defaults from Python file's PARAMETERS dict or function signature.
-        If provided, overrides the file's defaults.
-    
-    Example with parameters:
-      curl -X POST http://localhost:8000/api/v1/run \\
-        -F "file=@circuit.py" \\
-        -F "parameters={\\"w\\": 2.0, \\"l\\": 0.5}"
-    
-    Example without parameters (uses file's defaults):
-      curl -X POST http://localhost:8000/api/v1/run \\
-        -F "file=@circuit.py"
-    
-    Returns immediately with process_id and status. Use GET /status/{process_id} to check results.
-    """
-    # Parse parameters JSON if provided
+    """Upload circuit .py file and optional JSON parameters. Returns process_id."""
     user_params = {}
     if parameters:
         try:
             user_params = json.loads(parameters)
-            if not isinstance(user_params, dict):
-                raise ValueError("Parameters must be a JSON object")
         except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in parameters: {str(e)}")
-    
-    # Save uploaded file
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+
     process_id = f"proc_{uuid.uuid4().hex[:12]}"
-    uploads_dir = os.path.join("data", "designs", "uploads")
-    os.makedirs(uploads_dir, exist_ok=True)
+    work_dir = Path("data/designs")
+    uploads_dir = work_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    
     filename = f"{process_id}_{file.filename}"
-    file_path = os.path.join(uploads_dir, filename)
-    
+    file_path = str(uploads_dir / filename)
+
+    content = await file.read()
     with open(file_path, "wb") as fh:
-        fh.write(await file.read())
-    
-    # Extract defaults from file and merge with user-provided parameters
-    file_params = PipelineExecutor.parse_parameters_from_file(file_path)
-    final_params = {}
-    
-    # First, use defaults from file
-    for param_spec in file_params:
-        if param_spec.get("default") is not None:
-            final_params[param_spec["name"]] = param_spec["default"]
-    
-    # Then override with user-provided parameters
-    final_params.update(user_params)
-    
-    # Initialize process state
+        fh.write(content)
+
+    # Initialise process state
     PipelineExecutor.processes[process_id] = {
         "process_id": process_id,
         "status": ProcessStatus.RUNNING,
@@ -93,110 +60,126 @@ async def run_circuit(
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "results": None,
-        "error": None,
+        "errors": [],
         "file_path": file_path,
-        "filename": filename,
-        "provided_parameters": final_params,
+        "filename": file.filename,
+        "provided_parameters": user_params,
     }
-    
-    # Schedule background execution with merged parameters
+
+    # Schedule background execution
     if background_tasks is not None:
-        background_tasks.add_task(PipelineExecutor.run_circuit_from_file, process_id, file_path, final_params)
+        background_tasks.add_task(
+            PipelineExecutor.run_circuit_from_file,
+            process_id, file_path, user_params,
+        )
     else:
         import asyncio
-        asyncio.create_task(PipelineExecutor.run_circuit_from_file(process_id, file_path, final_params))
-    
+        asyncio.create_task(
+            asyncio.to_thread(
+                PipelineExecutor.run_circuit_from_file,
+                process_id, file_path, user_params,
+            )
+        )
+
     return RunResponse(
         process_id=process_id,
-        filename=filename,
+        filename=file.filename,
         status=ProcessStatus.RUNNING,
-        parameters=final_params,
-        message="Circuit processing started. Check status with GET /status/{process_id}"
+        parameters=user_params,
+        message="Circuit processing started.",
     )
 
 
 @router.get("/status/{process_id}", response_model=StatusResponse)
 async def get_status(process_id: str):
-    """Check circuit processing status and get results when ready"""
-    
+    """Check processing status and retrieve results."""
     if process_id not in PipelineExecutor.processes:
         raise HTTPException(status_code=404, detail="Process not found")
-    
+
     proc = PipelineExecutor.processes[process_id]
-    
     return StatusResponse(
         process_id=process_id,
-        filename=proc.get("filename"),
+        filename=proc.get("filename", "unknown"),
         status=proc["status"],
-        progress=proc["progress"],
+        progress=proc.get("progress", 0),
         parameters=proc.get("provided_parameters"),
         created_at=proc["created_at"],
-        updated_at=proc["updated_at"],
+        updated_at=proc.get("updated_at", proc["created_at"]),
         results=proc.get("results"),
-        error=proc.get("error")
+        error="; ".join(proc.get("errors", [])) or None,
     )
 
 
 @router.get("/download/{process_id}")
-async def download_results_zip(process_id: str):
-    """Return a ZIP file containing the netlist (.spice) and a PNG plot of results.
-
-    The ZIP is created in-memory and streamed to the caller.
-    """
+async def download_results(process_id: str):
+    """Download ZIP containing .spice netlist and .png result plot"""
     if process_id not in PipelineExecutor.processes:
         raise HTTPException(status_code=404, detail="Process not found")
 
     proc = PipelineExecutor.processes[process_id]
     results = proc.get("results") or {}
-    sim = results.get("simulation_output") or {}
-    netlist_paths = results.get("netlist_paths") or {}
-
-    # Choose primary netlist (dc) if present
-    netlist_file = netlist_paths.get("dc") or netlist_paths.get("primary_netlist")
-    # If netlist not available, fallback to uploaded source file
-    uploaded_file = proc.get("file_path")
-    if not netlist_file or not os.path.exists(netlist_file):
-        # If a netlist file isn't present on disk, attempt to use the uploaded
-        # source. If that also isn't present, fall back to embedding the
-        # simulation_output JSON into the ZIP so the user still receives useful
-        # information and the PNG plot.
-        if uploaded_file and os.path.exists(uploaded_file):
-            use_uploaded = True
-            attach_path = uploaded_file
-        else:
-            use_uploaded = False
-            attach_path = None
-    else:
-        use_uploaded = False
-        attach_path = netlist_file
-
-    # Generate PNG plot bytes from simulation output
-    try:
-        png_bytes = plot_simulation_output_png(sim)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Plot generation failed: {e}")
-
-    # Create in-memory ZIP
+    work_dir = Path("data/designs")
+    
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        # Add netlist file (or uploaded source) preserving name if available
-        if attach_path:
-            try:
-                zf.write(attach_path, arcname=os.path.basename(attach_path))
-            except Exception:
-                with open(attach_path, 'rb') as nf:
-                    zf.writestr(os.path.basename(attach_path), nf.read())
-        else:
-            # No netlist available on disk; include simulation_output JSON instead
-            import json as _json
-            zf.writestr(f"{process_id}_simulation_output.json", _json.dumps(sim, indent=2))
+        # 1. SPICE Netlists
+        netlists = results.get("netlists", {})
+        found_netlist = False
+        
+        for name, path_val in netlists.items():
+            if name == "sequence": continue
+            path = Path(path_val)
+            # Try to find the file
+            if path.exists():
+                zf.write(str(path), arcname=f"{process_id}_{name}.spice")
+                found_netlist = True
+            elif (work_dir / path.name).exists():
+                zf.write(str(work_dir / path.name), arcname=f"{process_id}_{name}.spice")
+                found_netlist = True
+        
+        # Fallback: glob for any spice files with this process_id in work_dir
+        if not found_netlist:
+            for f in work_dir.glob(f"{process_id}*.spice"):
+                zf.write(str(f), arcname=os.path.basename(f))
+                found_netlist = True
 
-        # Add PNG plot
-        zf.writestr(f"{process_id}_result.png", png_bytes)
+        # 2. PNG Plots
+        plots = results.get("plots", [])
+        if not plots:
+            # Fallback: check raw_output if pipeline executor didn't lift it (though we updated it)
+            raw = results.get("raw_output", {})
+            plots = raw.get("plots", [])
+
+        for plot_path in plots:
+            p = Path(plot_path)
+            # Calculate archive name (just filename)
+            arcname = p.name
+            
+            if p.exists():
+                zf.write(str(p), arcname=arcname)
+            elif (work_dir / p.name).exists():
+                zf.write(str(work_dir / p.name), arcname=arcname)
+            else:
+                logger.warning(f"Plot file listed but not found: {plot_path}")
+
+        # 3. Always include original source as fallback
+        uploaded = proc.get("file_path", "")
+        if uploaded and os.path.exists(uploaded):
+            zf.write(uploaded, arcname=f"source_{process_id}.py")
+
+        # 4. Summary JSON
+        summary = {
+            "metrics": results.get("metrics"),
+            "score": results.get("score"),
+            "checks": results.get("checks"),
+            "status": proc["status"],
+            "errors": proc.get("errors", [])
+        }
+        zf.writestr(f"summary_{process_id}.json", json.dumps(summary, indent=2))
 
     buf.seek(0)
-
-    headers = {
-        "Content-Disposition": f"attachment; filename=results_{process_id}.zip"
-    }
-    return StreamingResponse(buf, media_type="application/zip", headers=headers)
+    return StreamingResponse(
+        buf, 
+        media_type="application/zip", 
+        headers={"Content-Disposition": f"attachment; filename=results_{process_id}.zip"}
+    )

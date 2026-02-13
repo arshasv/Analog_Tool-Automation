@@ -17,16 +17,25 @@ logger = logging.getLogger(__name__)
 
 def _load_generate_netlist(file_path: str):
     """Dynamically import a Python file and return its generate_netlist function.
-
-    Returns None if the file does not define generate_netlist().
+    Uses a unique module name to avoid sys.modules caching collisions.
     """
     try:
-        spec = importlib.util.spec_from_file_location("_uploaded_circuit", file_path)
-        if spec is None or spec.loader is None:
+        import hashlib
+        logger.info(f"Attempting to load module from {file_path}")
+        module_name = f"circuit_{hashlib.md5(file_path.encode()).hexdigest()}"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if spec is None:
+            logger.warning(f"spec_from_file_location returned None for {file_path} (exists={os.path.exists(file_path)})")
             return None
+        if spec.loader is None:
+            logger.warning(f"spec.loader is None for {file_path}")
+            return None
+        
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         fn = getattr(mod, "generate_netlist", None)
+        if fn is None:
+            logger.warning(f"generate_netlist not found in module {module_name}")
         return fn
     except Exception as e:
         logger.warning(f"Could not load generate_netlist from {file_path}: {e}")
@@ -39,21 +48,31 @@ class AnalysisOrchestrator:
     @staticmethod
     def _get_circuit_netlist(file_path: str, parameters: Dict[str, Any]) -> str:
         """Try to get the circuit netlist from the uploaded file.
-
-        1. Dynamically import the file and call generate_netlist(**parameters).
-        2. If the file doesn't define generate_netlist, fall back to reading
-           the raw file content (in case it is already a SPICE netlist).
+        Robustly handles both (params: dict) and keyword argument signatures.
         """
+        logger.info(f"_get_circuit_netlist called for {file_path}")
         fn = _load_generate_netlist(file_path)
         if fn is not None:
+            import inspect
+            sig = inspect.signature(fn)
             try:
-                return fn(**parameters)
-            except TypeError:
-                # parameters may not match signature – try without
-                try:
-                    return fn()
-                except Exception as e:
-                    logger.error(f"generate_netlist() failed: {e}")
+                # 1. If it takes a single dict named 'params' (modular block style)
+                if 'params' in sig.parameters and len(sig.parameters) == 1:
+                    logger.info(f"Generating netlist using params dict from {file_path}")
+                    return fn(params=parameters)
+                
+                # 2. If it takes specific keyword arguments
+                # Filter parameters to only those in the signature
+                valid_params = {k: v for k, v in parameters.items() if k in sig.parameters}
+                logger.info(f"Generating netlist using kwargs {valid_params.keys()} from {file_path}")
+                if valid_params:
+                    return fn(**valid_params)
+                
+                # 3. Fallback to just calling it (defaults)
+                logger.info(f"Generating netlist using defaults from {file_path}")
+                return fn()
+            except Exception as e:
+                logger.error(f"generate_netlist execution failed: {e}")
 
         # Fallback: treat the file content itself as SPICE
         try:
@@ -67,6 +86,15 @@ class AnalysisOrchestrator:
     # -----------------------------------------------------------------
 
     @staticmethod
+    def _get_parametric_header() -> str:
+        """Returns standard SPICE functions for DRC-safe parameter clamping."""
+        return """
+* Sky130 DRC Safe Clamps
+.func clampW(x) = {max(0.42u, min(x, 50u))}
+.func clampL(x) = {max(0.15u, min(x, 5u))}
+"""
+
+    @staticmethod
     def generate_dc_netlist(
         process_id: str,
         circuit_name: str,
@@ -74,17 +102,42 @@ class AnalysisOrchestrator:
         output_dir: Path = Path("data/designs"),
         circuit_netlist: str = "",
     ) -> str:
-        """Write the circuit's own netlist as the DC analysis file.
-
-        The uploaded circuit files already contain complete netlists with
-        .lib, supplies, device instantiations, and an analysis command.
-        We save it directly so ngspice can run it.
-        """
         output_dir.mkdir(parents=True, exist_ok=True)
         netlist_path = output_dir / f"{process_id}_dc.spice"
 
+        # Remove existing analysis, .control/.endc blocks, and .end
+        lines = circuit_netlist.splitlines()
+        filtered = []
+        for line in lines:
+            stripped = line.strip().lower()
+            if stripped.startswith((".tran", ".dc ", ".ac ", ".op", ".control", ".endc", "run", "plot", ".end")):
+                continue
+            filtered.append(line)
+
         with open(netlist_path, "w") as f:
-            f.write(circuit_netlist)
+            f.write(f"* Parametric DC Analysis for {circuit_name}\n")
+            f.write(AnalysisOrchestrator._get_parametric_header())
+            
+            f.write("\n* Computed Parameters\n")
+            for k, v in parameters.items():
+                # If it's W or L, wrap in clamp
+                if k.lower().startswith("w_"):
+                    f.write(f".param {k} = {{clampW({v}u)}}\n")
+                elif k.lower().startswith("l_"):
+                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                else:
+                    f.write(f".param {k} = {v}\n")
+            
+            f.write("\n* Circuit Implementation\n")
+            f.write("\n".join(filtered))
+            
+            f.write("\n\n* DC Operating Point Analysis\n")
+            f.write(".op\n")
+            f.write(".control\n")
+            f.write("run\n")
+            f.write("print all\n")
+            f.write(".endc\n")
+            f.write(".end\n")
 
         return str(netlist_path)
 
@@ -97,32 +150,46 @@ class AnalysisOrchestrator:
         output_dir: Path = Path("data/designs"),
         circuit_netlist: str = "",
     ) -> str:
-        """Generate an AC analysis variant of the circuit netlist.
-
-        Takes the original netlist and replaces / appends an AC analysis
-        command so ngspice produces frequency-domain data.
-        """
         output_dir.mkdir(parents=True, exist_ok=True)
         netlist_path = output_dir / f"{process_id}_ac.spice"
 
-        # Strip trailing .end so we can append AC commands
-        base = circuit_netlist
-        # Remove existing analysis commands but keep circuit
-        lines = base.splitlines()
+        # Remove existing analysis, .control/.endc blocks, and .end
+        lines = circuit_netlist.splitlines()
         filtered = []
         for line in lines:
             stripped = line.strip().lower()
-            # Skip existing analysis, .control/.endc blocks, and .end
             if stripped.startswith((".tran", ".dc ", ".ac ", ".control", ".endc", "run", "plot", ".end")):
                 continue
             filtered.append(line)
-
+        # AC sweep configuration
+        start_freq = 100.0
+        stop_freq = 100e6
+        points_per_dec = 50
+        ac_csv_name = f"{process_id}_ac.csv"
+        
         with open(netlist_path, "w") as f:
+            f.write(f"* Parametric AC Analysis for {circuit_name}\n")
+            f.write(AnalysisOrchestrator._get_parametric_header())
+            
+            f.write("\n* Computed Parameters\n")
+            for k, v in parameters.items():
+                if k.lower().startswith("w_"):
+                    f.write(f".param {k} = {{clampW({v}u)}}\n")
+                elif k.lower().startswith("l_"):
+                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                else:
+                    f.write(f".param {k} = {v}\n")
+            
+            f.write("\n* Circuit Implementation\n")
             f.write("\n".join(filtered))
-            f.write("\n\n* AC Small-Signal Analysis\n")
-            f.write(".ac dec 50 100Hz 100MHz\n")
+            f.write("\n\n* AC Analysis\n")
+            f.write(f".ac dec {points_per_dec} {start_freq} {stop_freq}\n")
             f.write(".control\n")
             f.write("run\n")
+            # Export real frequency response data for Python plotting
+            f.write("set filetype=ascii\n")
+            f.write(f"wrdata {ac_csv_name} frequency vdb(vout)\n")
+            # Keep a simple print for debugging in case parsing is needed
             f.write("print vdb(vout)\n")
             f.write(".endc\n")
             f.write(".end\n")
@@ -137,11 +204,9 @@ class AnalysisOrchestrator:
         output_dir: Path = Path("data/designs"),
         circuit_netlist: str = "",
     ) -> str:
-        """Generate a transient analysis variant of the circuit netlist."""
         output_dir.mkdir(parents=True, exist_ok=True)
         netlist_path = output_dir / f"{process_id}_tran.spice"
 
-        # Strip trailing analysis commands
         lines = circuit_netlist.splitlines()
         filtered = []
         for line in lines:
@@ -149,13 +214,31 @@ class AnalysisOrchestrator:
             if stripped.startswith((".tran", ".dc ", ".ac ", ".control", ".endc", "run", "plot", ".end")):
                 continue
             filtered.append(line)
+        tran_csv_name = f"{process_id}_tran.csv"
 
         with open(netlist_path, "w") as f:
+            f.write(f"* Parametric Transient Analysis for {circuit_name}\n")
+            f.write(AnalysisOrchestrator._get_parametric_header())
+            
+            f.write("\n* Computed Parameters\n")
+            for k, v in parameters.items():
+                if k.lower().startswith("w_"):
+                    f.write(f".param {k} = {{clampW({v}u)}}\n")
+                elif k.lower().startswith("l_"):
+                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                else:
+                    f.write(f".param {k} = {v}\n")
+            
+            f.write("\n* Circuit Implementation\n")
             f.write("\n".join(filtered))
             f.write("\n\n* Transient Analysis\n")
             f.write(".tran 1n 10u\n")
             f.write(".control\n")
             f.write("run\n")
+            # Export real transient waveform for Python plotting
+            f.write("set filetype=ascii\n")
+            f.write(f"wrdata {tran_csv_name} time v(vout)\n")
+            # Keep a simple print for debugging
             f.write("print v(vout)\n")
             f.write(".endc\n")
             f.write(".end\n")
@@ -173,17 +256,15 @@ class AnalysisOrchestrator:
         parameters: Dict[str, Any],
         output_dir: Path = Path("data/designs"),
         file_path: str = "",
+        circuit_netlist: str = "",
     ) -> Dict[str, str]:
         """Create all three analysis netlists in proper sequence.
-
-        If file_path is given, we dynamically call its generate_netlist()
-        to produce the actual circuit-specific SPICE.
-
         Returns dict: {"dc": path, "ac": path, "transient": path}
         """
-        # Get the real circuit netlist from the uploaded file
-        circuit_netlist = ""
-        if file_path:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get the real circuit netlist from the uploaded file if not provided
+        if not circuit_netlist and file_path:
             circuit_netlist = AnalysisOrchestrator._get_circuit_netlist(
                 file_path, parameters
             )
@@ -215,7 +296,6 @@ class AnalysisOrchestrator:
             "dc": dc_path,
             "ac": ac_path,
             "transient": transient_path,
-            "sequence": ["dc", "ac", "transient"],
         }
 
 

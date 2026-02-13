@@ -1,11 +1,13 @@
-"""Minimal circuit pipeline executor with file parsing"""
+"""Minimal circuit pipeline executor with architecture synthesis support."""
 import asyncio
 import logging
 import ast
 import os
+import json
 from pathlib import Path
 from datetime import datetime
-import hashlib
+from typing import Dict, Any, List
+
 from app.models.circuit import CircuitRequest, ProcessState, ProcessStatus
 from app.services.analysis_orchestrator import AnalysisOrchestrator, get_circuit_type_from_filename
 from app.services.ngspice_executor import NgSpiceExecutor, OptimizationObjectives
@@ -14,183 +16,204 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineExecutor:
-    """Execute circuit pipeline and provide simple file parsing for parameters"""
+    """Execute circuit pipeline and provide architecture synthesis capabilities."""
     
     # In-memory process storage
     processes = {}
     
     @staticmethod
-    async def run_circuit(process_id: str, request: CircuitRequest):
-        """Run circuit simulation (existing JSON-based request)"""
-        
-        if process_id in PipelineExecutor.processes:
-            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.RUNNING
-            PipelineExecutor.processes[process_id]["progress"] = 10
-        
-        try:
-            await asyncio.sleep(1)
-            sim_results = {
-                "operating_point": {
-                    "vdd": 1.8,
-                    "id": request.parameters.get("iref", 10e-6),
-                    "vgs": 0.65,
-                    "vout": 0.9
-                },
-                "ac_analysis": {
-                    "gain_db": 45.2,
-                    "bandwidth_hz": 1e6,
-                    "phase_deg": -85.5
-                }
-            }
-
-            if process_id in PipelineExecutor.processes:
-                PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
-                PipelineExecutor.processes[process_id]["progress"] = 100
-                PipelineExecutor.processes[process_id]["results"] = {
-                    "netlist_path": f"data/designs/{process_id}.spice",
-                    "simulation_output": sim_results
-                }
-                PipelineExecutor.processes[process_id]["updated_at"] = datetime.now()
-
-        except Exception as e:
-            logger.error(f"Pipeline error: {e}")
-            if process_id in PipelineExecutor.processes:
-                PipelineExecutor.processes[process_id]["status"] = ProcessStatus.FAILED
-                PipelineExecutor.processes[process_id]["error"] = str(e)
-
-    @staticmethod
-    def parse_parameters_from_file(file_path: str):
-        """Parse a Python circuit file to extract a PARAMETERS dict or build_circuit signature.
-
-        Returns a list of dicts: {name,type,default}
-        """
-        params = []
+    def parse_parameters_from_file(file_path: str) -> Dict[str, Any]:
+        """Simple parameter extraction using AST."""
+        params = {}
         try:
             with open(file_path, "r") as fh:
-                src = fh.read()
-            mod = ast.parse(src)
-        except Exception:
-            return params
-
-        for node in mod.body:
-            # Look for PARAMETERS = { 'iref': 1e-5, ... }
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id in ("PARAMETERS", "DEFAULT_PARAMS"):
+                tree = ast.parse(fh.read())
+            
+            for node in tree.body:
+                # Handle PARAMETERS dict
+                if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+                    if node.targets[0].id in ("PARAMETERS", "DEFAULT_PARAMS"):
                         if isinstance(node.value, ast.Dict):
-                            keys = node.value.keys
-                            values = node.value.values
-                            for k, v in zip(keys, values):
+                            for k, v in zip(node.value.keys, node.value.values):
                                 try:
-                                    name = ast.literal_eval(k)
-                                except Exception:
-                                    continue
-                                try:
-                                    default = ast.literal_eval(v)
-                                except Exception:
-                                    default = None
-                                ptype = type(default).__name__ if default is not None else "string"
-                                params.append({"name": name, "type": ptype, "default": default})
-                            if params:
-                                return params
-            # Look for build_circuit(a, b=1e-6)
-            if isinstance(node, ast.FunctionDef) and node.name == "build_circuit":
-                arg_names = [a.arg for a in node.args.args]
-                defaults = node.args.defaults
-                num_args = len(arg_names)
-                num_defaults = len(defaults)
-                for i, name in enumerate(arg_names):
-                    default = None
-                    if i >= num_args - num_defaults:
+                                    params[ast.literal_eval(k)] = ast.literal_eval(v)
+                                except: pass
+                # Handle generate_netlist function signature
+                if isinstance(node, ast.FunctionDef) and node.name == "generate_netlist":
+                    args = node.args.args
+                    defaults = node.args.defaults
+                    # zip from the end
+                    for arg, default in zip(reversed(args), reversed(defaults)):
                         try:
-                            default = ast.literal_eval(defaults[i - (num_args - num_defaults)])
-                        except Exception:
-                            default = None
-                    ptype = type(default).__name__ if default is not None else "string"
-                    params.append({"name": name, "type": ptype, "default": default})
-                if params:
-                    return params
-
+                            params[arg.arg] = ast.literal_eval(default)
+                        except: pass
+        except Exception as e:
+            logger.warning(f"AST parse failed for {file_path}: {e}")
         return params
 
     @staticmethod
-    async def run_circuit_from_file(process_id: str, file_path: str, parameters: dict):
-        """Run pipeline using an uploaded python circuit file and parameter dict."""
-        if process_id in PipelineExecutor.processes:
+    def run_circuit_from_file(
+        process_id: str,
+        file_path: str,
+        parameters: Dict[str, Any] = None,
+    ):
+        """Standard flow: simulate a specific uploaded file with parameters."""
+        parameters = parameters or {}
+        try:
+            # 1. Setup
+            out_dir = Path("data/designs")
+            out_dir.mkdir(parents=True, exist_ok=True)
             PipelineExecutor.processes[process_id]["status"] = ProcessStatus.RUNNING
             PipelineExecutor.processes[process_id]["progress"] = 5
-
-        try:
-            # Small simulated pipeline: 1) validate, 2) generate separate analyses, 3) simulate
-            await asyncio.sleep(1)
-            PipelineExecutor.processes[process_id]["progress"] = 30
-
-            # Extract circuit type and name
-            circuit_type = get_circuit_type_from_filename(file_path)
-            circuit_name = Path(file_path).stem
             
-            # Generate separate netlists for DC, AC, and transient analyses
-            out_dir = Path("data/designs")
+            # 2. Extract info
+            circuit_name = Path(file_path).stem
+            file_defaults = PipelineExecutor.parse_parameters_from_file(file_path)
+            # Merge: File Defaults < User Parameters
+            merged_params = {**file_defaults, **parameters}
+            PipelineExecutor.processes[process_id]["parameters"] = merged_params
+            
+            # 3. Create Analysis Sequence
+            circuit_block = AnalysisOrchestrator._get_circuit_netlist(file_path, merged_params)
+            
             analysis_paths = AnalysisOrchestrator.create_analysis_sequence(
-                process_id, circuit_name, parameters, out_dir,
-                file_path=file_path,
+                process_id, circuit_name, merged_params, out_dir,
+                file_path=file_path
             )
-
-            await asyncio.sleep(0.5)
-            PipelineExecutor.processes[process_id]["progress"] = 50
-
-            # Execute netlists with ngspice
-            logger.info(f"Executing ngspice analyses for {process_id}")
-            analysis_results = NgSpiceExecutor.run_analysis_sequence(
+            PipelineExecutor.processes[process_id]["progress"] = 30
+            
+            # 4. Run Simulations
+            sim_results = NgSpiceExecutor.run_analysis_sequence(
                 analysis_paths["dc"],
                 analysis_paths["ac"],
                 analysis_paths["transient"],
                 out_dir
             )
-            
-            await asyncio.sleep(0.5)
             PipelineExecutor.processes[process_id]["progress"] = 80
-
-            # Create optimization objectives from analysis results
-            optimization_objectives = OptimizationObjectives.create_objectives_from_analysis(
-                analysis_results,
-                circuit_type
-            )
             
-            # Compute fitness score
-            actual_metrics = {
-                **analysis_results.get("ac_analysis", {}),
-                **analysis_results.get("transient_analysis", {})
+            # 5. Flatten results for fitness computation
+            # Combine AC and Transient metrics into a single flat dict
+            flat_metrics = {
+                **sim_results.get("operating_point", {}),
+                **sim_results.get("ac_analysis", {}),
+                **sim_results.get("transient_analysis", {})
             }
-            fitness = OptimizationObjectives.compute_fitness(
-                optimization_objectives,
-                actual_metrics
-            )
+            
+            # 6. Compute Fitness (Vectorized)
+            objs = OptimizationObjectives.create_objectives_from_analysis(sim_results, circuit_name)
+            fitness_vector = OptimizationObjectives.compute_fitness(objs, flat_metrics)
+            
+            # 7. Finalize
+            PipelineExecutor.processes[process_id]["progress"] = 100
+            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
+            PipelineExecutor.processes[process_id]["results"] = {
+                "metrics": fitness_vector["metrics"],
+                "score": fitness_vector["score"],
+                "checks": fitness_vector["checks"],
+                "netlists": analysis_paths,
+                "raw_output": sim_results,
+                "plots": sim_results.get("plots", [])
+            }
+            
+            # 7. Design Memory
+            try:
+                import ast
+                with open(file_path, "r") as f:
+                    node = ast.parse(f.read())
+                topology_info = {}
+                for item in node.body:
+                    if isinstance(item, ast.Assign) and isinstance(item.targets[0], ast.Name) and item.targets[0].id == "TOPOLOGY":
+                        if isinstance(item.value, ast.Dict):
+                            # Correct zip and eval for older python compatibility if needed, but literals are safe
+                            topology_info = {ast.literal_eval(k): ast.literal_eval(v) for k, v in zip(item.value.keys, item.value.values)}
+                
+                PipelineExecutor._store_design_memory({
+                    "process_id": process_id,
+                    "circuit": circuit_name,
+                    "topology": topology_info,
+                    "parameters": merged_params,
+                    "metrics": fitness_vector["metrics"],
+                    "score": fitness_vector["score"]
+                })
+            except Exception as e:
+                logger.warning(f"Failed to store design memory: {e}")
 
-            # Combine results
-            sim_results = {
-                "circuit_type": circuit_type,
-                "analysis_netlists": analysis_paths,
-                "analysis_success": analysis_results.get("success", False),
-                "analysis_errors": analysis_results.get("errors", []),
-                "operating_point": analysis_results.get("operating_point", {}),
-                "ac_analysis": analysis_results.get("ac_analysis", {}),
-                "transient_analysis": analysis_results.get("transient_analysis", {}),
-                "optimization_objectives": optimization_objectives,
-                "fitness_score": float(fitness)
-            }
+        except Exception as e:
+            logger.error(f"Pipeline failed for {process_id}: {e}", exc_info=True)
+            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.FAILED
+            PipelineExecutor.processes[process_id]["errors"].append(str(e))
+
+    @staticmethod
+    def run_architecture_search(process_id: str, specs: Dict[str, Any]):
+        """Architecture Search Mode: Enumerates topologies and samples parameters."""
+        from app.services.topology import enumerate_valid_topologies
+        from app.services.parameter_synthesizer import random_sample_params
+        from app.services.architecture_synthesizer import ArchitectureSynthesizer
+        
+        try:
+            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.RUNNING
+            topologies = enumerate_valid_topologies()
+            results_pool = []
+            
+            total = len(topologies)
+            # Limit search to 20 for interactive performance in this version
+            search_space = topologies[:20]
+            
+            for i, topo in enumerate(search_space):
+                PipelineExecutor.processes[process_id]["progress"] = int((i / len(search_space)) * 95)
+                
+                # Coarse sample (N=3 instead of 5 for speed in this demo)
+                param_sets = random_sample_params(topo, specs, n=3)
+                
+                for p_idx, params in enumerate(param_sets):
+                    netlist_str = ArchitectureSynthesizer.generate_netlist_string(topo, params)
+                    sub_id = f"{process_id}_{i}_{p_idx}"
+                    
+                    analysis_paths = AnalysisOrchestrator.create_analysis_sequence(
+                        sub_id, "search_node", params, Path("data/designs"),
+                        circuit_netlist=netlist_str
+                    )
+                    
+                    sim_results = NgSpiceExecutor.run_analysis_sequence(
+                        analysis_paths["dc"], analysis_paths["ac"], analysis_paths["transient"]
+                    )
+                    
+                    flat_metrics = {
+                        **sim_results.get("operating_point", {}),
+                        **sim_results.get("ac_analysis", {}),
+                        **sim_results.get("transient_analysis", {})
+                    }
+                    
+                    objs = OptimizationObjectives.create_objectives_from_analysis(sim_results, "generic")
+                    fitness = OptimizationObjectives.compute_fitness(objs, flat_metrics)
+                    
+                    results_pool.append({
+                        "topology": topo.as_dict(),
+                        "parameters": params,
+                        "metrics": fitness["metrics"],
+                        "score": fitness["score"]
+                    })
+                
+                # Sort and store top 10
+                PipelineExecutor.processes[process_id]["results"] = {
+                    "top_candidates": sorted(results_pool, key=lambda x: x["score"], reverse=True)[:10]
+                }
 
             PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
             PipelineExecutor.processes[process_id]["progress"] = 100
-            PipelineExecutor.processes[process_id]["results"] = {
-                "netlist_paths": analysis_paths,
-                "primary_netlist": analysis_paths["dc"],
-                "simulation_output": sim_results
-            }
-            PipelineExecutor.processes[process_id]["updated_at"] = datetime.now()
+            
+            # Batch save to memory
+            for res in results_pool:
+                PipelineExecutor._store_design_memory(res)
 
         except Exception as e:
-            logger.exception("Error running circuit from file")
-            if process_id in PipelineExecutor.processes:
-                PipelineExecutor.processes[process_id]["status"] = ProcessStatus.FAILED
-                PipelineExecutor.processes[process_id]["error"] = str(e)
+            logger.error(f"Arch search failed: {e}", exc_info=True)
+            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.FAILED
+
+    @staticmethod
+    def _store_design_memory(data: Dict[str, Any]):
+        """Persist design points to JSON lines."""
+        memory_file = Path("data/results/design_memory.jsonl")
+        memory_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(memory_file, "a") as f:
+            f.write(json.dumps(data) + "\n")
