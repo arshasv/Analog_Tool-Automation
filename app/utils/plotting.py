@@ -76,14 +76,19 @@ def create_ac_plot(ac_results: Dict[str, float]) -> bytes:
     f = np.logspace(1, 8, num=400)  # 10 Hz to 100 MHz
     # First-order roll-off around bandwidth: magnitude (linear)
     mag_lin = 10 ** (gain_db / 20.0) / np.sqrt(1.0 + (f / bw) ** 2)
-    mag_db = 20.0 * np.log10(mag_lin + 1e-20)
+    mag_linear = 10 ** (gain_db / 20.0)
+    mag_rollout = mag_linear / np.sqrt(1.0 + (f / (bw + 1e-9)) ** 2)
+    # Floor at -120dB instead of -400dB for better visual sanity when data is zero
+    mag_db = 20.0 * np.log10(mag_rollout + 1e-6)
 
     plt.figure(figsize=(6, 3.5))
-    plt.semilogx(f, mag_db)
+    plt.semilogx(f, mag_db, color='red', alpha=0.3, linestyle='--')
     plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    plt.title('AC Magnitude (approx)')
+    plt.title('AC Magnitude (FALLBACK: No Simulation Data)')
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Magnitude (dB)')
+    plt.text(0.5, 0.5, "NOT REAL DATA", ha='center', va='center', 
+             transform=plt.gca().transAxes, fontsize=20, color='red', alpha=0.2)
     plt.tight_layout()
     plt.savefig(buf, format='png', dpi=150)
     plt.close()
@@ -99,9 +104,9 @@ def create_ac_plot_from_data(freq: Sequence[float], mag_db: Sequence[float]) -> 
         if not freq or not mag_db:
             return b""
         plt.figure(figsize=(6, 3.5))
-        plt.semilogx(freq, mag_db)
+        plt.semilogx(freq, mag_db, linewidth=1.5, color='blue')
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
-        plt.title('AC Magnitude')
+        plt.title('AC Magnitude (Simulated)')
         plt.xlabel('Frequency (Hz)')
         plt.ylabel('Magnitude (dB)')
         plt.tight_layout()
@@ -132,11 +137,13 @@ def create_transient_plot(tran_results: Dict[str, float]) -> bytes:
     step = step + peak * np.exp(-((t - tau) ** 2) / (0.5 * tau ** 2))
 
     plt.figure(figsize=(6, 3.5))
-    plt.plot(t, step)
+    plt.plot(t, step, color='red', alpha=0.3, linestyle='--')
     plt.grid(True, linestyle='--', alpha=0.5)
-    plt.title('Transient Step Response (approx)')
+    plt.title('Transient Response (FALLBACK: No Simulation Data)')
     plt.xlabel('Time (us)')
-    plt.ylabel('Normalized Output')
+    plt.ylabel('Value (approx)')
+    plt.text(0.5, 0.5, "NOT REAL DATA", ha='center', va='center', 
+             transform=plt.gca().transAxes, fontsize=20, color='red', alpha=0.2)
     plt.tight_layout()
     plt.savefig(buf, format='png', dpi=150)
     plt.close()
@@ -152,11 +159,11 @@ def create_transient_plot_from_data(time: Sequence[float], value: Sequence[float
         if not time or not value:
             return b""
         plt.figure(figsize=(6, 3.5))
-        plt.plot(time, value)
+        plt.plot(time, value, linewidth=1.5, color='blue')
         plt.grid(True, linestyle='--', alpha=0.5)
-        plt.title('Transient Response')
+        plt.title('Transient Response (Simulated)')
         plt.xlabel('Time (s)')
-        plt.ylabel('V(vout)')
+        plt.ylabel('Signal Value')
         plt.tight_layout()
         plt.savefig(buf, format='png', dpi=150)
         plt.close()
@@ -164,4 +171,25 @@ def create_transient_plot_from_data(time: Sequence[float], value: Sequence[float
         return buf.read()
     except Exception as e:
         logger.warning(f"Failed to create transient plot from data: {e}")
+        return b""
+
+def create_dc_sweep_plot(x: Sequence[float], y: Sequence[float], x_label: str = "Input", y_label: str = "Output") -> bytes:
+    """Create a plot for DC sweep data (e.g. I-V or V-V curves)."""
+    buf = BytesIO()
+    try:
+        if not x or not y:
+            return b""
+        plt.figure(figsize=(6, 3.5))
+        plt.plot(x, y, linewidth=1.5, color='green')
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.title('DC Sweep Analysis (Simulated)')
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        plt.tight_layout()
+        plt.savefig(buf, format='png', dpi=150)
+        plt.close()
+        buf.seek(0)
+        return buf.read()
+    except Exception as e:
+        logger.warning(f"Failed to create DC sweep plot: {e}")
         return b""

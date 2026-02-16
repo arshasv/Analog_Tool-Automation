@@ -30,6 +30,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
+# Bundled PDKs (fallback location matches code defaults)
+COPY pdk/sky130A /opt/sky130_pdk/sky130A
+
 RUN chmod +x /app/start.sh
 
 EXPOSE 8000

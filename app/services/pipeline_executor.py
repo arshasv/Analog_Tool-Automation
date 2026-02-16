@@ -71,6 +71,11 @@ class PipelineExecutor:
             file_defaults = PipelineExecutor.parse_parameters_from_file(file_path)
             # Merge: File Defaults < User Parameters
             merged_params = {**file_defaults, **parameters}
+            # Derived params for ngspice (single-token values to avoid "unknown parameter" errors)
+            if "i_tail" in merged_params:
+                merged_params["i_tail_A"] = float(merged_params["i_tail"]) * 1e-6
+            if "cc" in merged_params:
+                merged_params["cc_F"] = float(merged_params["cc"]) * 1e-12
             PipelineExecutor.processes[process_id]["parameters"] = merged_params
             
             # 3. Create Analysis Sequence

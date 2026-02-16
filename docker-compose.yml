@@ -6,10 +6,11 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app
-      - /usr/local/share/pdk/sky130A:/opt/pdk:ro
+      # Optional: mount full Sky130 PDK to override bundled minimal lib
+      # - /usr/local/share/pdk/sky130A:/opt/pdk:ro
     environment:
       - WORK_DIR=/app/data/designs
-      - SKY130_PDK=/opt/pdk
+      - SKY130_PDK=/opt/sky130_pdk/sky130A
       - PYTHONPATH=/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped

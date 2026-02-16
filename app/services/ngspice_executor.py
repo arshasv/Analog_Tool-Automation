@@ -15,6 +15,7 @@ from app.utils.plotting import (
     create_transient_plot,
     create_ac_plot_from_data,
     create_transient_plot_from_data,
+    create_dc_sweep_plot,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,39 +34,52 @@ class NgSpiceExecutor:
             output_dir = Path(netlist_path).parent
         
         output_file = output_dir / f"{Path(netlist_path).stem}_output.txt"
+        netlist_name = Path(netlist_path).name
         
         # Ensure stale output is removed
         if output_file.exists():
             output_file.unlink()
         
         try:
-            # Run ngspice in batch mode
+            # Run ngspice in batch mode; cwd=output_dir so wrdata creates CSV in same dir
             cmd = [
                 NgSpiceExecutor.NGSPICE_CMD,
                 "-b",  # batch mode
-                netlist_path,
+                netlist_name,
                 "-o",  # output file
-                str(output_file)
+                output_file.name,
             ]
             
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                cwd=str(output_dir),
             )
             
+            # Always try to read ngspice output if the file exists
+            output_text = ""
+            if output_file.exists():
+                try:
+                    with open(output_file, "r") as f:
+                        output_text = f.read()
+                except Exception as e:
+                    logger.warning(f"Failed to read ngspice output file {output_file}: {e}")
+            
+            # Treat any non-zero return code as a simulation failure,
+            # even if an output file was produced (it may only contain errors).
             if result.returncode != 0:
                 logger.warning(f"ngspice returned code {result.returncode}")
-                logger.warning(f"stderr: {result.stderr}")
+                if result.stderr:
+                    logger.warning(f"stderr: {result.stderr}")
+                msg = output_text or result.stderr or f"ngspice exited with code {result.returncode}"
+                return False, msg
             
-            # Read output
-            if output_file.exists():
-                with open(output_file, 'r') as f:
-                    output = f.read()
-                return True, output
-            else:
-                return False, result.stderr
+            # Successful run with zero exit code
+            if output_text:
+                return True, output_text
+            return False, "ngspice produced no output"
                 
         except subprocess.TimeoutExpired:
             logger.error(f"ngspice timeout on {netlist_path}")
@@ -112,31 +126,28 @@ class NgSpiceExecutor:
     @staticmethod
     def parse_ac_analysis(output: str) -> Dict[str, float]:
         """Parse AC analysis results from tabular 'print' output."""
-        results = {"gain_db": 0.0, "phase_margin_deg": 0.0, "bandwidth_hz": 0.0}
+        results = {"gain_db": 0.0, "phase_margin_deg": 0.0, "bandwidth_hz": 1e6}
         
-        # Look for tabular data from 'print vdb(vout)'
+        # Look for magnitude-related data from 'print'
         lines = output.splitlines()
-        found_data = False
-        vdb_values = []
+        mag_values = []
         
         for i, line in enumerate(lines):
-            if "vdb(vout)" in line.lower():
-                found_data = True
+            l_lower = line.lower()
+            if "vdb(" in l_lower or "db(" in l_lower or "magnitude" in l_lower:
                 # Skip header and separator
                 for data_line in lines[i+2:]:
                     parts = data_line.split()
                     if len(parts) >= 3: # Index, Freq, Value
                         try:
-                            vdb_values.append(float(parts[2]))
+                            mag_values.append(float(parts[2]))
                         except ValueError: break
                     else: break
-                break
+                if mag_values:
+                    break
         
-        if vdb_values:
-            results["gain_db"] = max(vdb_values)
-            # Rough bandwidth: where gain drops by 3dB from peak
-            peak = results["gain_db"]
-            results["bandwidth_hz"] = 1e6 # Placeholder unless we parse freq too
+        if mag_values:
+            results["gain_db"] = max(mag_values)
         
         # Extract Phase Margin if explicitly printed or searched for
         pm_match = re.search(r"(?:phase_margin|pm)\s*=\s*([-+]?\d*\.?\d+)", output, re.IGNORECASE)
@@ -175,37 +186,37 @@ class NgSpiceExecutor:
     # ------------------------------------------------------------------
     @staticmethod
     def _load_xy_from_ascii(path: Path) -> Tuple[List[float], List[float]]:
+        """Load X, Y data from ngspice 'wrdata' output.
+        Handles both 2-column (DC) and 4-column (AC real/imag) formats.
         """
-        Load simple XY data from an ASCII file generated by:
-            set filetype=ascii
-            wrdata <file> x y
-        
-        Heuristic parser: skips non-numeric header lines and collects
-        lines with at least 2 float values.
-        """
-        xs: List[float] = []
-        ys: List[float] = []
+        x_vals, y_vals = [], []
+        if not path.exists():
+            return x_vals, y_vals
+
         try:
             with open(path, "r") as f:
                 for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
                     parts = line.split()
-                    # Require at least two numeric columns
-                    if len(parts) < 2:
+                    if not parts:
                         continue
+                    
                     try:
+                        # parts[0] is typically the scale (freq or sweep var)
                         x = float(parts[0])
+                        # If we have at least 2 columns, parts[1] is the value/real part
+                        # In AC, wrdata writes: freq real freq imag (4 columns)
+                        # In DC, wrdata writes: sweep_val val (2 columns)
+                        # In both cases, parts[1] is what we usually want.
                         y = float(parts[1])
-                    except ValueError:
-                        # Likely header or metadata line
+                        
+                        x_vals.append(x)
+                        y_vals.append(y)
+                    except (ValueError, IndexError):
                         continue
-                    xs.append(x)
-                    ys.append(y)
         except Exception as e:
-            logger.warning(f"Failed to load XY data from {path}: {e}")
-        return xs, ys
+            logger.error(f"Error loading ASCII data from {path}: {e}")
+
+        return x_vals, y_vals
     
     @staticmethod
     def run_analysis_sequence(
@@ -240,7 +251,15 @@ class NgSpiceExecutor:
             
             # Generate DC plot
             try:
-                png_bytes = create_dc_plot(results["operating_point"])
+                # Check for DC sweep data first
+                dc_sweep_csv = output_dir / f"{process_id}_dc_sweep.csv"
+                if dc_sweep_csv.exists():
+                    x, y = NgSpiceExecutor._load_xy_from_ascii(dc_sweep_csv)
+                    # Heuristic: if y is huge, maybe it's i(rload) which is negative or small
+                    png_bytes = create_dc_sweep_plot(x, y, x_label="Sweep", y_label="Value")
+                else:
+                    png_bytes = create_dc_plot(results["operating_point"])
+                
                 if png_bytes:
                     plot_path = output_dir / f"{process_id}_dc.png"
                     with open(plot_path, "wb") as f:
@@ -263,10 +282,13 @@ class NgSpiceExecutor:
             try:
                 ac_ascii = output_dir / f"{process_id}_ac.csv"
                 if ac_ascii.exists():
+                    logger.info(f"Found AC sweep data at {ac_ascii}, generating real plot.")
                     freq, mag_db = NgSpiceExecutor._load_xy_from_ascii(ac_ascii)
                     png_bytes = create_ac_plot_from_data(freq, mag_db)
                 else:
+                    logger.info(f"AC sweep data {ac_ascii} not found, using synthetic fallback.")
                     png_bytes = create_ac_plot(results["ac_analysis"])
+                
                 if png_bytes:
                     plot_path = output_dir / f"{process_id}_ac.png"
                     with open(plot_path, "wb") as f:
@@ -289,10 +311,13 @@ class NgSpiceExecutor:
             try:
                 tran_ascii = output_dir / f"{process_id}_tran.csv"
                 if tran_ascii.exists():
+                    logger.info(f"Found transient data at {tran_ascii}, generating real plot.")
                     t, v = NgSpiceExecutor._load_xy_from_ascii(tran_ascii)
                     png_bytes = create_transient_plot_from_data(t, v)
                 else:
+                    logger.info(f"Transient data {tran_ascii} not found, using synthetic fallback.")
                     png_bytes = create_transient_plot(results["transient_analysis"])
+                
                 if png_bytes:
                     plot_path = output_dir / f"{process_id}_tran.png"
                     with open(plot_path, "wb") as f:

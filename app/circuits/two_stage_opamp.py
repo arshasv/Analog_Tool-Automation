@@ -28,11 +28,12 @@ def generate_netlist(w_diff: float = 5.0, w_load: float = 10.0,
 * Supply (Defaults)
 Vdd vdd 0 1.8
 Vcm vcm 0 0.9
-Vinp vinp vcm AC 1
-Vinn vinn vcm DC 0
+* Differential small-signal excitation around common-mode
+Vinp vinp vcm AC 0.5
+Vinn vinn vcm AC -0.5
 
-* Current Bias
-Itail vs 0 {{i_tail}}u
+* Current Bias (use i_tail_A in A; set by pipeline from i_tail in uA)
+Itail vs 0 {{i_tail_A}}
 
 * Stage 1: Diff Pair with Active Load
 XM1 d1 vinp vs 0 sky130_fd_pr__nfet_01v8 w={{w_diff}} l={{l_diff}}
@@ -45,8 +46,8 @@ XM5 vout d2 0 0 sky130_fd_pr__nfet_01v8 w={{w_out}} l={{l_out}}
 XM6 vout vbias2 vdd vdd sky130_fd_pr__pfet_01v8 w={{w_out}} l={{l_out}}
 Vbias2 vbias2 0 1.0
 
-* Miller Compensation
-Cc d2 vout {{cc}}p
+* Miller Compensation (cc in pF -> use cc_F in F)
+Cc d2 vout {{cc_F}}
 
 * Load
 CL vout 0 2p

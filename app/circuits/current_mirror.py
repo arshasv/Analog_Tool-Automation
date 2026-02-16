@@ -9,7 +9,7 @@ Upload this file via POST /api/v1/run with optional parameters:
 import os
 
 
-def generate_netlist(width: float = 2.0, length: float = 0.5) -> str:
+def generate_netlist(width: float = 2.0, length: float = 0.5, process_id: str = "sim") -> str:
     """
     Generates a SPICE netlist for a Current Mirror using Sky130 NMOS.
 
@@ -23,6 +23,9 @@ def generate_netlist(width: float = 2.0, length: float = 0.5) -> str:
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Current Mirror
+* @AC_SOURCE: Iref
+* @AC_EXPR: db(i(Vmeas))
+* @TRAN_EXPR: i(Vmeas)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -32,23 +35,27 @@ def generate_netlist(width: float = 2.0, length: float = 0.5) -> str:
 * Supply
 Vdd vdd 0 1.8
 
-* Reference current
-Iref vdd d_ref 100u
+* Reference current (DC + AC excitation)
+Iref vdd d_ref 100u ac 1
 
 * Circuit — Current Mirror
-* M1: diode-connected reference transistor
 XM1 d_ref d_ref 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
-* M2: mirror output transistor
 XM2 vout d_ref 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 
-* Output load
-Rload vdd vout 10k
+* Output load with current measurement
+Vmeas vout v_load_pin 0
+Rload vdd v_load_pin 10k
 
-* Analysis — DC sweep of reference current
+* Analysis
 .dc Iref 1u 200u 1u
+.ac dec 100 10 100Meg
+
 .control
 run
-plot i(Rload) vs @Iref[dc]
+* Export data for Python plotting
+set filetype=ascii
+wrdata {process_id}_ac.csv db(i(Vmeas))
+wrdata {process_id}_dc_sweep.csv i(Vmeas)
 .endc
 .end
 """

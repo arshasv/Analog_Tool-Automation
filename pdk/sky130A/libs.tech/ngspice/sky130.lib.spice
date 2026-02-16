@@ -1,0 +1,23 @@
+* Minimal Sky130-style lib for xEDA when full PDK is not mounted.
+* Typical corner (tt) only. For full PDK, mount open_pdks sky130A at /opt/pdk.
+*
+* Typical corner (tt)
+.lib tt
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+* Simple level-1 MOSFET models for ngspice (functional, not process-accurate)
+.model nmos_01v8 nmos (level=1 kp=100u vto=0.5 gamma=0.5 phi=0.7)
+.model pmos_01v8 pmos (level=1 kp=50u vto=-0.5 gamma=0.5 phi=0.7)
+
+.subckt sky130_fd_pr__nfet_01v8 d g s b
+.param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
+M1 d g s b nmos_01v8 w={w} l={l}
+.ends
+
+.subckt sky130_fd_pr__pfet_01v8 d g s b
+.param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
+M1 d g s b pmos_01v8 w={w} l={l}
+.ends
+
+.endl tt
