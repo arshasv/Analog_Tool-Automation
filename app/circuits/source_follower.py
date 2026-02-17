@@ -19,6 +19,10 @@ def generate_netlist(width: float = 10.0, length: float = 0.15,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Source Follower (Common Drain Buffer)
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -27,21 +31,21 @@ def generate_netlist(width: float = 10.0, length: float = 0.15,
 
 * Supply
 Vdd vdd 0 1.8
-Vin vin 0 DC 0.9 AC 1
+Vin vin 0 pulse(0.8 1.0 1u 1n 1n 5u 10u) DC 0.9 AC 1
 
 * Circuit — Source Follower
-* M1: driver transistor (drain to VDD, source is output)
 XM1 vdd vin vout 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 
-* Tail current source (ideal)
+* Tail current source
 Ibias vout 0 {ibias}
 
-* Analysis — AC frequency response
-.ac dec 50 1 10G
-.control
-run
-plot vdb(vout)
-.endc
+* Load Capacitor
+CL vout 0 0.5p
+
+* Analysis
+.dc Vin 0 1.8 0.01
+.ac dec 50 10 10G
+.tran 10n 20u
 .end
 """
     return netlist

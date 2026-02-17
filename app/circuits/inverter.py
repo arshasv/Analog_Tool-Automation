@@ -20,6 +20,10 @@ def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 CMOS Inverter
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -29,7 +33,9 @@ def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
 
 * Supply
 Vdd vdd 0 1.8
-Vin vin 0 PULSE(0 1.8 1n 0.1n 0.1n 5n 10n)
+
+* Stimulus
+Vin vin 0 pulse(0 1.8 1u 1n 1n 5u 10u) AC 1
 
 * Circuit
 XMn vout vin 0 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
@@ -38,12 +44,10 @@ XMp vout vin vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
 * Load
 Cload vout 0 {cload}f
 
-* Analysis — Transient (switching waveform)
-.tran 0.01n 30n
-.control
-run
-plot v(vin) v(vout)
-.endc
+* Analysis
+.dc Vin 0 1.8 0.01
+.ac dec 50 10 10G
+.tran 1n 20u
 .end
 """
     return netlist

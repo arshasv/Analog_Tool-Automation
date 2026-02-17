@@ -18,6 +18,10 @@ def generate_netlist(w_up: float = 5.0, w_dn: float = 2.5,
     c2 = c_filter / 10
 
     netlist = f"""* Sky130 Charge Pump
+* @AC_SOURCE: Vdd
+* @AC_EXPR: vdb(vctrl)
+* @TRAN_EXPR: v(vctrl)
+* @DC_EXPR: v(vctrl)
 .lib "{lib_path}" tt
 
 .param W_up = {w_up}u
@@ -44,10 +48,6 @@ R1 vctrl vctrl2 1k
 C2 vctrl2 0 {c2}p
 
 .tran 0.1n 100n
-.control
-run
-plot v(up) v(dn) v(vctrl)
-.endc
 .end
 """
     return netlist

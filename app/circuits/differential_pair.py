@@ -24,6 +24,10 @@ def generate_netlist(width: float = 2.0, length: float = 0.15) -> str:
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Differential Pair Amplifier
+* @AC_SOURCE: Vin_p
+* @AC_EXPR: vdb(vout_p,vout_n)
+* @TRAN_EXPR: v(vout_p,vout_n)
+* @DC_EXPR: v(vout_p,vout_n)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -35,8 +39,8 @@ Vdd vdd 0 1.8
 
 * Inputs
 Vcm vcm 0 DC 0.9
-Vin_p vin_p vcm SIN(0 0.05 1k)
-Vin_n vin_n vcm DC 0
+Vin_p vin_p vcm pulse(-0.05 0.05 1u 1n 1n 5u 10u) AC 0.5
+Vin_n vin_n vcm AC -0.5
 
 * Circuit — Differential Pair
 * Input transistors
@@ -47,15 +51,17 @@ XM2 vout_n vin_n vs 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L_n}}
 R1 vdd vout_p 10k
 R2 vdd vout_n 10k
 
+* Load Capacitors
+CL1 vout_p 0 0.1p
+CL2 vout_n 0 0.1p
+
 * Tail current source
 Iss vs 0 100u
 
 * Analysis
-.tran 1n 10u
-.control
-run
-plot v(vout_p) v(vout_n) v(vin_p) v(vin_n)
-.endc
+.dc Vin_p 0.8 1.0 0.005
+.ac dec 50 10 1G
+.tran 1n 20u
 .end
 """
     return netlist

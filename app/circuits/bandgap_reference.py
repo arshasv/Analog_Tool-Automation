@@ -24,6 +24,10 @@ def generate_netlist(w_mirror: float = 5.0, l_mirror: float = 1.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Bandgap Voltage Reference
+* @AC_SOURCE: Vdd
+* @AC_EXPR: vdb(vref)
+* @TRAN_EXPR: v(vref)
+* @DC_EXPR: v(vref)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -32,8 +36,8 @@ def generate_netlist(w_mirror: float = 5.0, l_mirror: float = 1.0,
 .param R1_val = {r1}
 .param R2_val = {r2}
 
-* Supply
-Vdd vdd 0 1.8
+* Supply (Pulse for Transient power-on)
+Vdd vdd 0 pulse(0 1.8 1u 1n 1n 50u 100u) AC 1
 
 * === PMOS Current Mirror (forces equal currents in both branches) ===
 XM1 branch1 branch1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_m}} l={{L_m}}
@@ -41,13 +45,10 @@ XM2 branch2 branch1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_m}} l={{L_m}}
 XM3 vref branch1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_m}} l={{L_m}}
 
 * === Branch 1: Single BJT (1x area) ===
-* Q1 collector=branch1, base=0, emitter=0
 XQ1 branch1 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
 
 * === Branch 2: PTAT generation ===
-* R1 develops delta-Vbe voltage (PTAT)
 R1 branch2 e2 {{R1_val}}
-* Q2: 8x parallel BJTs (emitter area ratio = 8)
 XQ2a e2 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
 XQ2b e2 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
 XQ2c e2 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
@@ -61,12 +62,13 @@ XQ2h e2 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
 R2 vref e_out {{R2_val}}
 XQ3 e_out 0 0 0 sky130_fd_pr__pnp_05v5_W3p40L3p40
 
-* Analysis — Temperature sweep to verify reference stability
+* Load Capacitor for realistic transient
+Cout vref 0 1p
+
+* Analysis
 .dc temp -40 125 1
-.control
-run
-plot v(vref) title "Bandgap Reference vs Temperature"
-.endc
+.ac dec 50 10 100Meg
+.tran 10n 20u
 .end
 """
     return netlist

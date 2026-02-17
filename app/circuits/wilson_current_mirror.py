@@ -17,6 +17,10 @@ def generate_netlist(width: float = 2.0, length: float = 1.0) -> str:
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Wilson Current Mirror
+* @AC_SOURCE: Iref
+* @AC_EXPR: db(-i(Vmeas))
+* @TRAN_EXPR: -i(Vmeas)
+* @DC_EXPR: -i(Vmeas)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -26,32 +30,26 @@ def generate_netlist(width: float = 2.0, length: float = 1.0) -> str:
 * Supply
 Vdd vdd 0 1.8
 
-* Reference current
-Iref vdd d_ref 100u
+* Reference current (DC + AC + Pulse)
+Iref vdd d_ref pulse(80u 120u 1u 1n 1n 5u 10u) AC 1
 
 * Circuit — Wilson Current Mirror
-* M1: input (diode-connected through feedback)
-XM1 d_ref gate1 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
-* M2: output mirror transistor
+XM1 gate1 gate1 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 XM2 s3 gate1 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
-* M3: feedback cascode transistor (diode-connected)
-XM3 vout d_ref s3 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
+XM3 vout_node d_ref s3 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 
-* Gate connection: M1 gate = M2 gate
-* d_ref connects to M3 gate, M1 drain
-* gate1 connects to M1 gate, M2 gate, M1 drain via M1 diode
-* Actually for Wilson: M1 gate = M1 drain, M2 gate = M1 gate
-* Corrected: gate1 = d_ref (M1 is diode-connected)
+* Feedback jump
+R_jump d_ref gate1 0.1
 
-* Output load
+* Measurement and Load
+Vmeas vout vout_node 0
 Rload vdd vout 10k
+Cout vout_node 0 1p
 
 * Analysis
-.dc Iref 10u 500u 5u
-.control
-run
-plot v(vout) i(Rload)
-.endc
+.dc Iref 1u 200u 10u
+.ac dec 50 10 100Meg
+.tran 10n 20u
 .end
 """
     return netlist

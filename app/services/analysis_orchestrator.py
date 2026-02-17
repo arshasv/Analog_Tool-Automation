@@ -124,6 +124,9 @@ class AnalysisOrchestrator:
                 continue
             filtered.append(line)
         
+        # Extract hints
+        meta = AnalysisOrchestrator._extract_metadata(circuit_netlist)
+
         # Force PDK path consistency
         fixed_lines = [AnalysisOrchestrator._fix_pdk_paths(l) for l in filtered]
 
@@ -159,29 +162,36 @@ class AnalysisOrchestrator:
                 f.write(".control\n")
                 f.write("run\n")
                 f.write("set filetype=ascii\n")
-                # Attempt to find the plotted variable from the original plot command if any
-                plot_var = "i(Rload)" if "mirror" in circuit_name.lower() else "v(vout)"
                 sweep_var = ""
-                # Extract sweep variable from .dc line
                 m_sweep = re.search(r"\.dc\s+([^\s]+)", dc_sweep_line, re.IGNORECASE)
                 if m_sweep: sweep_var = m_sweep.group(1)
-                
-                for line in lines:
-                    if "plot " in line.lower():
-                        # Simple extraction of the first thing after plot
-                        m = re.search(r"plot\s+([^\s]+)", line, re.IGNORECASE)
-                        if m: plot_var = m.group(1)
-                        # Check if it has a 'vs' part
-                        if " vs " in line.lower():
-                             # plot Y vs X
-                             m_vs = re.search(r"plot\s+([^\s]+)\s+vs\s+([^\s]+)", line, re.IGNORECASE)
-                             if m_vs:
-                                 plot_var = m_vs.group(1)
-                                 sweep_var = m_vs.group(2).replace("@", "").replace("[dc]", "")
 
-                        break
+                # Determine plot variable
+                if "dc_expr" in meta:
+                    plot_var = meta["dc_expr"]
+                else:
+                    # Attempt to find the plotted variable from the original plot command if any
+                    plot_var = "v(vout)"
+                    if "mirror" in circuit_name.lower():
+                        if "vmeas" in circuit_netlist.lower(): plot_var = "i(vmeas)"
+                        elif "rload" in circuit_netlist.lower(): plot_var = "i(rload)"
+                    
+                    for line in lines:
+                        if "plot " in line.lower():
+                            # Simple extraction of the first thing after plot
+                            m = re.search(r"plot\s+([^\s]+)", line, re.IGNORECASE)
+                            if m: plot_var = m.group(1)
+                            # Check if it has a 'vs' part
+                            if " vs " in line.lower():
+                                 # plot Y vs X
+                                 m_vs = re.search(r"plot\s+([^\s]+)\s+vs\s+([^\s]+)", line, re.IGNORECASE)
+                                 if m_vs:
+                                     plot_var = m_vs.group(1)
+                                     sweep_var = m_vs.group(2).replace("@", "").replace("[dc]", "")
+
+                            break
                 
-                f.write(f"wrdata {process_id}_dc_sweep.csv {sweep_var} {plot_var}\n")
+                f.write(f"wrdata {process_id}_dc_sweep.csv {plot_var}\n")
                 f.write("print all\n")
                 f.write(".endc\n")
             else:
@@ -227,6 +237,8 @@ class AnalysisOrchestrator:
                 meta["ac_expr"] = line.split("@AC_EXPR:")[1].strip()
             if "@TRAN_EXPR:" in line:
                 meta["tran_expr"] = line.split("@TRAN_EXPR:")[1].strip()
+            if "@DC_EXPR:" in line:
+                meta["dc_expr"] = line.split("@DC_EXPR:")[1].strip()
             if "@AC_SOURCE:" in line:
                 meta["ac_source"] = line.split("@AC_SOURCE:")[1].strip()
         return meta
@@ -326,7 +338,7 @@ class AnalysisOrchestrator:
             f.write(".control\n")
             f.write("run\n")
             f.write("set filetype=ascii\n")
-            f.write(f"wrdata {ac_csv_name} frequency {ac_expr}\n")
+            f.write(f"wrdata {ac_csv_name} {ac_expr}\n")
             f.write(f"print {ac_expr}\n")
             f.write(".endc\n")
             f.write(".end\n")
@@ -400,7 +412,7 @@ class AnalysisOrchestrator:
             f.write("run\n")
             # Export real transient waveform for Python plotting
             f.write("set filetype=ascii\n")
-            f.write(f"wrdata {tran_csv_name} time {tran_expr}\n")
+            f.write(f"wrdata {tran_csv_name} {tran_expr}\n")
             # Keep a simple print for debugging
             f.write(f"print {tran_expr}\n")
             f.write(".endc\n")

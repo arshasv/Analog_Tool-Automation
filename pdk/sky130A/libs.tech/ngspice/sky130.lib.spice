@@ -7,8 +7,8 @@
 .param mc_pr_switch=0
 
 * Simple level-1 MOSFET models for ngspice (functional, not process-accurate)
-.model nmos_01v8 nmos (level=1 kp=100u vto=0.5 gamma=0.5 phi=0.7)
-.model pmos_01v8 pmos (level=1 kp=50u vto=-0.5 gamma=0.5 phi=0.7)
+.model nmos_01v8 nmos (level=1 kp=100u vto=0.5 gamma=0.5 phi=0.7 cgso=1n cgdo=1n cj=1m)
+.model pmos_01v8 pmos (level=1 kp=50u vto=-0.5 gamma=0.5 phi=0.7 cgso=1n cgdo=1n cj=1m)
 
 .subckt sky130_fd_pr__nfet_01v8 d g s b
 .param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
@@ -18,6 +18,12 @@ M1 d g s b nmos_01v8 w={w} l={l}
 .subckt sky130_fd_pr__pfet_01v8 d g s b
 .param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
 M1 d g s b pmos_01v8 w={w} l={l}
+.ends
+
+.subckt sky130_fd_pr__pnp_05v5_W3p40L3p40 c b e s
+* Functional PNP model for BGR simulation
+Q1 c b e pnp_model
+.model pnp_model pnp (bf=100 is=1e-16 vaf=50)
 .ends
 
 .endl tt

@@ -40,6 +40,10 @@ def generate_netlist(stages: int = 5, w_n: float = 1.0,
     inverter_block = "\n".join(inv_lines)
 
     netlist = f"""* Sky130 {stages}-Stage Ring Oscillator
+* @AC_SOURCE: Vdd
+* @AC_EXPR: vdb(n0)
+* @TRAN_EXPR: v(n0)
+* @DC_EXPR: v(n0)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -47,21 +51,19 @@ def generate_netlist(stages: int = 5, w_n: float = 1.0,
 .param W_p = {w_p}u
 .param L = {l}u
 
-* Supply
-Vdd vdd 0 1.8
+* Supply (Pulse kickstart)
+Vdd vdd 0 pulse(0 1.8 1u 1n 1n 50u 100u) AC 1
 
-* Initial condition to kick-start oscillation
+* Initial condition
 .ic v(n0)=0
 
 * Circuit
 {inverter_block}
 
 * Analysis
-.tran 0.01n 20n
-.control
-run
-plot v(n0) v(n1)
-.endc
+.dc Vdd 1.2 1.8 0.01
+.ac dec 50 10 10G
+.tran 0.1n 10u
 .end
 """
     return netlist

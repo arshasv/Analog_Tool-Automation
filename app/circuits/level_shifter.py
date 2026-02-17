@@ -23,6 +23,10 @@ def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Cross-Coupled PMOS Level Shifter
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -35,7 +39,7 @@ Vddl vddl 0 {vddl}
 Vddh vddh 0 {vddh}
 
 * Input (low-voltage domain)
-Vin in 0 PULSE(0 {vddl} 1n 0.1n 0.1n 5n 10n)
+Vin in 0 pulse(0 {vddl} 1u 1n 1n 5u 10u) AC 1
 
 * Inverter to generate complementary input (low domain)
 XMn_inv in_b in 0 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
@@ -54,11 +58,9 @@ XMp2 vout out_b vddh vddh sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
 Cload vout 0 10f
 
 * Analysis
-.tran 0.1n 30n
-.control
-run
-plot v(in) v(vout) title "Level Shifter: Input vs Output"
-.endc
+.dc Vin 0 {vddl} 0.01
+.ac dec 50 10 10G
+.tran 1n 20u
 .end
 """
     return netlist

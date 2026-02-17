@@ -201,13 +201,15 @@ class NgSpiceExecutor:
                         continue
                     
                     try:
-                        # parts[0] is typically the scale (freq or sweep var)
+                        # parts[0] is typically the scale (freq, time, or sweep var)
                         x = float(parts[0])
-                        # If we have at least 2 columns, parts[1] is the value/real part
-                        # In AC, wrdata writes: freq real freq imag (4 columns)
-                        # In DC, wrdata writes: sweep_val val (2 columns)
-                        # In both cases, parts[1] is what we usually want.
-                        y = float(parts[1])
+                        # If we have exactly 2 columns, parts[1] is the value
+                        if len(parts) == 2:
+                            y = float(parts[1])
+                        else:
+                            # For AC raw (freq real freq imag), parts[1] is real, parts[3] is imag.
+                            # We take the second column as the primary one for plotting.
+                            y = float(parts[1])
                         
                         x_vals.append(x)
                         y_vals.append(y)
@@ -255,8 +257,13 @@ class NgSpiceExecutor:
                 dc_sweep_csv = output_dir / f"{process_id}_dc_sweep.csv"
                 if dc_sweep_csv.exists():
                     x, y = NgSpiceExecutor._load_xy_from_ascii(dc_sweep_csv)
-                    # Heuristic: if y is huge, maybe it's i(rload) which is negative or small
-                    png_bytes = create_dc_sweep_plot(x, y, x_label="Sweep", y_label="Value")
+                    
+                    x_lbl, y_lbl = "Sweep Variable", "Target Variable"
+                    # Heuristic for better labels
+                    if "mirror" in str(dc_netlist).lower():
+                        x_lbl, y_lbl = "Reference Current (A)", "Output Current (A)"
+                    
+                    png_bytes = create_dc_sweep_plot(x, y, x_label=x_lbl, y_label=y_lbl)
                 else:
                     png_bytes = create_dc_plot(results["operating_point"])
                 

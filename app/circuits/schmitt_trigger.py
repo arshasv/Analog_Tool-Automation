@@ -24,6 +24,10 @@ def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 CMOS Schmitt Trigger
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -36,33 +40,22 @@ def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
 * Supply
 Vdd vdd 0 1.8
 
-* Slow triangular input to see hysteresis
-Vin vin 0 PULSE(0 1.8 0 10n 10n 0.1n 20n)
+* Input: Slow triangular pulse to see hysteresis
+Vin vin 0 pulse(0 1.8 1u 5u 5u 1u 12u) AC 1
 
-* === Schmitt Trigger (6-transistor) ===
-* PMOS pull-up path
-XMp1 vout vin vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
-* PMOS feedback (weakens pull-up on rising edge → shifts threshold up)
-XMpfb n1 vout vdd vdd sky130_fd_pr__pfet_01v8 w={{W_pfb}} l={{L}}
-
-* NMOS pull-down stack
-XMn1 vout vin n2 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
-* NMOS feedback (weakens pull-down on falling edge → shifts threshold down)
-XMnfb n2 vout 0 0 sky130_fd_pr__nfet_01v8 w={{W_nfb}} l={{L}}
-
-* Internal node connections for hysteresis feedback
-* n1 connects to pull-up feedback path
-* n2 connects to pull-down feedback path
+* === Schmitt Trigger ===
+XM1 vout vin vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
+XM2 n1 vout vdd vdd sky130_fd_pr__pfet_01v8 w={{W_pfb}} l={{L}}
+XM3 vout vin n2 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
+XM4 n2 vout 0 0 sky130_fd_pr__nfet_01v8 w={{W_nfb}} l={{L}}
 
 * Load
 Cload vout 0 10f
 
-* Analysis — DC sweep to observe hysteresis loop
+* Analysis
 .dc Vin 0 1.8 0.001
-.control
-run
-plot v(vout) vs v(vin) title "Schmitt Trigger Hysteresis"
-.endc
+.ac dec 50 10 10G
+.tran 10n 20u
 .end
 """
     return netlist

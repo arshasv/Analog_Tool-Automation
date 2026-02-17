@@ -24,8 +24,9 @@ def generate_netlist(width: float = 2.0, length: float = 0.5, process_id: str = 
 
     netlist = f"""* Sky130 Current Mirror
 * @AC_SOURCE: Iref
-* @AC_EXPR: db(i(Vmeas))
-* @TRAN_EXPR: i(Vmeas)
+* @AC_EXPR: db(-i(Vmeas))
+* @TRAN_EXPR: -i(Vmeas)
+* @DC_EXPR: -i(Vmeas)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -35,8 +36,8 @@ def generate_netlist(width: float = 2.0, length: float = 0.5, process_id: str = 
 * Supply
 Vdd vdd 0 1.8
 
-* Reference current (DC + AC excitation)
-Iref vdd d_ref 100u ac 1
+* Reference current (DC + AC excitation + Pulse for TRAN)
+Iref vdd d_ref pulse(80u 120u 1u 1n 1n 5u 10u) ac 1
 
 * Circuit — Current Mirror
 XM1 d_ref d_ref 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
@@ -45,18 +46,13 @@ XM2 vout d_ref 0 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 * Output load with current measurement
 Vmeas vout v_load_pin 0
 Rload vdd v_load_pin 10k
+Cout vout 0 1p
 
 * Analysis
 .dc Iref 1u 200u 1u
 .ac dec 100 10 100Meg
+.tran 10n 20u
 
-.control
-run
-* Export data for Python plotting
-set filetype=ascii
-wrdata {process_id}_ac.csv db(i(Vmeas))
-wrdata {process_id}_dc_sweep.csv i(Vmeas)
-.endc
 .end
 """
     return netlist

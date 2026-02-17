@@ -20,6 +20,10 @@ def generate_netlist(w_diff: float = 2.0, w_load: float = 4.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Comparator
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -32,7 +36,7 @@ Vdd vdd 0 1.8
 
 * Inputs
 Vref vref 0 0.9
-Vin vin 0 SIN(0.9 0.5 10k)
+Vin vin 0 pulse(0.5 1.3 10u 1n 1n 40u 80u) DC 0.9 AC 1
 
 * === Differential Pair ===
 Itail vs 0 {itail}
@@ -47,12 +51,13 @@ XM4 d2 d1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_load}} l={{L}}
 XM5 vout d2 0 0 sky130_fd_pr__nfet_01v8 w={{W_diff}} l={{L}}
 XM6 vout d2 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_load}} l={{L}}
 
-* Analysis — transient to see comparison switching
-.tran 1n 200u
-.control
-run
-plot v(vin) v(vref) v(vout)
-.endc
+* Load Capacitor
+CL vout 0 0.1p
+
+* Analysis
+.dc Vin 0 1.8 0.01
+.ac dec 50 10 100Meg
+.tran 1n 150u
 .end
 """
     return netlist

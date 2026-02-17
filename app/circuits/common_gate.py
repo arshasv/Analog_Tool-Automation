@@ -19,6 +19,10 @@ def generate_netlist(width: float = 5.0, length: float = 0.15,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Common Gate Amplifier
+* @AC_SOURCE: Vin
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -30,7 +34,7 @@ Vdd vdd 0 1.8
 
 * Bias and input
 Vbias vbias 0 {vbias}
-Vin vin 0 DC 0.5 AC 1
+Vin vin 0 pulse(0.45 0.55 1u 1n 1n 5u 10u) DC 0.5 AC 1
 
 * Input coupling — signal enters at source terminal
 Rin vin src 50
@@ -41,12 +45,13 @@ XM1 vout vbias src 0 sky130_fd_pr__nfet_01v8 w={{W}} l={{L}}
 * Drain load resistor
 Rd vdd vout 5k
 
+* Load Capacitor
+CL vout 0 0.2p
+
 * Analysis
-.ac dec 50 1 10G
-.control
-run
-plot vdb(vout)
-.endc
+.dc Vin 0.3 0.7 0.01
+.ac dec 50 10 10G
+.tran 10n 20u
 .end
 """
     return netlist

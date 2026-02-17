@@ -25,6 +25,10 @@ def generate_netlist(w_pass: float = 100.0, l_pass: float = 0.5,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Low Dropout Regulator (LDO)
+* @AC_SOURCE: Vdd
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -33,10 +37,10 @@ def generate_netlist(w_pass: float = 100.0, l_pass: float = 0.5,
 .param W_ea = {w_ea}u
 .param L_ea = {l_ea}u
 
-* Unregulated supply (e.g. battery)
-Vdd vdd 0 3.3
+* Unregulated supply (Pulse for line regulation transient)
+Vdd vdd 0 pulse(3.0 3.6 10u 1n 1n 40u 80u) AC 1
 
-* Reference voltage (~1.2V from bandgap)
+* Reference voltage
 Vref vref 0 1.2
 
 * === Error Amplifier (simple diff pair) ===
@@ -52,7 +56,6 @@ XM3 ea_out1 ea_out1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_ea}} l={{L_ea}}
 XM4 ea_out ea_out1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_ea}} l={{L_ea}}
 
 * === Pass Transistor (PMOS) ===
-* Gate driven by error amplifier output
 XM_pass vout ea_out vdd vdd sky130_fd_pr__pfet_01v8 w={{W_pass}} l={{L_pass}}
 
 * === Feedback Network ===
@@ -65,12 +68,10 @@ CL vout 0 {cl}u
 * === Load ===
 Rload vout 0 100
 
-* Analysis — Load regulation (DC sweep of load)
-.dc Rload 50 500 5
-.control
-run
-plot v(vout) title "LDO Output vs Load"
-.endc
+* Analysis
+.dc Vdd 2.5 3.5 0.01
+.ac dec 50 10 100Meg
+.tran 100n 150u
 .end
 """
     return netlist

@@ -18,6 +18,10 @@ def generate_netlist(width: float = 4.0, length: float = 0.5,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 PMOS Current Mirror
+* @AC_SOURCE: Iref
+* @AC_EXPR: db(-i(Vmeas))
+* @TRAN_EXPR: -i(Vmeas)
+* @DC_EXPR: -i(Vmeas)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -27,24 +31,22 @@ def generate_netlist(width: float = 4.0, length: float = 0.5,
 * Supply
 Vdd vdd 0 1.8
 
-* Reference current source (sinks from VDD through M1)
-Iref d_ref 0 {iref}
+* Reference current (DC + AC + Pulse)
+Iref d_ref 0 pulse(40u 60u 1u 1n 1n 5u 10u) AC 1
 
 * Circuit — PMOS Current Mirror
-* M1: diode-connected reference (source=VDD, drain=gate)
 XM1 d_ref d_ref vdd vdd sky130_fd_pr__pfet_01v8 w={{W}} l={{L}}
-* M2: mirror output (gate tied to M1)
-XM2 vout d_ref vdd vdd sky130_fd_pr__pfet_01v8 w={{W}} l={{L}}
+XM2 vout_node d_ref vdd vdd sky130_fd_pr__pfet_01v8 w={{W}} l={{L}}
 
-* Output load
+* Measurement and Load
+Vmeas vout_node vout 0
 Rload vout 0 10k
+Cout vout_node 0 1p
 
-* Analysis — sweep VDD to see mirror compliance
-.dc Vdd 0 1.8 0.01
-.control
-run
-plot -i(Vdd) i(Rload)
-.endc
+* Analysis
+.dc Iref 1u 100u 1u
+.ac dec 50 10 100Meg
+.tran 10n 20u
 .end
 """
     return netlist

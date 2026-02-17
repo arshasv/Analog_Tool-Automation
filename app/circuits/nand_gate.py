@@ -19,6 +19,10 @@ def generate_netlist(w_n: float = 2.0, w_p: float = 2.0,
     lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 CMOS 2-Input NAND Gate
+* @AC_SOURCE: Va
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
 .lib "{lib_path}" tt
 
 * Parameters
@@ -29,28 +33,23 @@ def generate_netlist(w_n: float = 2.0, w_p: float = 2.0,
 * Supply
 Vdd vdd 0 1.8
 
-* Inputs (staggered pulses to exercise all input combinations)
-Va a 0 PULSE(0 1.8 1n 0.1n 0.1n 5n 10n)
-Vb b 0 PULSE(0 1.8 1n 0.1n 0.1n 10n 20n)
+* Inputs (staggered pulses)
+Va a 0 pulse(0 1.8 1u 1n 1n 5u 10u) AC 1
+Vb b 0 pulse(0 1.8 1u 1n 1n 10u 20u)
 
 * Circuit — NAND: series NMOS pull-down, parallel PMOS pull-up
-* NMOS series stack
-XMn1 vout a mid 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
-XMn2 mid b 0 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
-
-* PMOS parallel pull-up
-XMp1 vout a vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
-XMp2 vout b vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
+XM1 vout a mid 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
+XM2 mid b 0 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
+XM3 vout a vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
+XM4 vout b vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
 
 * Load
 Cload vout 0 10f
 
 * Analysis
-.tran 0.1n 40n
-.control
-run
-plot v(a) v(b) v(vout)
-.endc
+.dc Va 0 1.8 0.01
+.ac dec 50 10 10G
+.tran 1n 40u
 .end
 """
     return netlist
