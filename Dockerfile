@@ -33,8 +33,7 @@ COPY . /app
 # Bundled PDKs (fallback location matches code defaults)
 COPY pdk/sky130A /opt/sky130_pdk/sky130A
 
-RUN chmod +x /app/start.sh
+# Create work directories and start uvicorn
+RUN mkdir -p /work/input /work/output /work/logs
 
-EXPOSE 8000
-
-CMD ["/app/start.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
