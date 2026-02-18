@@ -21,9 +21,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["circuits"])
 
 
-@router.get("/debug/processes")
-async def debug_list_processes():
-    return {"processes": list(PipelineExecutor.processes.keys())}
 
 
 @router.post("/run", response_model=RunResponse)
