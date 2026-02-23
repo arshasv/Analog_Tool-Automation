@@ -1,58 +1,92 @@
 """
-Sky130 Telescopic Cascode Amplifier - Netlist Generator
+Sky130 Telescopic Cascode OTA - Netlist Generator
 
-High-gain single-stage amplifier. Stacked NMOS cascode provides
-high output impedance → high voltage gain (60-80 dB typical).
+True differential telescopic cascode operational transconductance amplifier.
+High-gain single-stage OTA with stacked cascode devices for high output impedance.
 
 Upload via POST /api/v1/run with optional parameters:
-  - w_input (float): Input transistor width in um (default: 5.0)
+  - w_diff    (float): Differential pair width in um (default: 10.0)
   - w_cascode (float): Cascode transistor width in um (default: 5.0)
-  - l (float): Channel length in um (default: 0.5)
-  - vbias (float): Cascode gate bias voltage (default: 1.2)
+  - w_load    (float): Active load width in um (default: 20.0)
+  - w_bias    (float): Bias transistor width in um (default: 2.0)
+  - l_diff    (float): Diff pair length in um (default: 1.0)
+  - l_cascode (float): Cascode length in um (default: 1.0)
+  - i_tail    (float): Tail current in uA (default: 20.0)
+  - vbias_n   (float): NMOS cascode bias voltage (default: 1.1)
+  - vbias_p   (float): PMOS cascode bias voltage (default: 0.7)
 """
 
 import os
 
 
-def generate_netlist(w_input: float = 5.0, w_cascode: float = 5.0,
-                     l: float = 0.5, vbias: float = 1.2) -> str:
-    pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
-    lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
+def generate_netlist(w_diff: float = 10.0, w_cascode: float = 5.0,
+                     w_load: float = 20.0, w_bias: float = 2.0,
+                     l_diff: float = 1.0, l_cascode: float = 1.0,
+                     i_tail: float = 20.0, vbias_n: float = 1.1,
+                     vbias_p: float = 0.7) -> str:
 
-    netlist = f"""* Sky130 Telescopic Cascode Amplifier
-* @AC_SOURCE: Vin
+    pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
+
+    netlist = f"""* Sky130 Telescopic Cascode OTA
+* Generator: cascode_amplifier.py
+* @AC_SOURCE: Vin_p
 * @AC_EXPR: vdb(vout)
 * @TRAN_EXPR: v(vout)
 * @DC_EXPR: v(vout)
-.lib "{lib_path}" tt
 
-* Parameters
-.param W_in = {w_input}u
-.param W_cas = {w_cascode}u
-.param L = {l}u
-
+* -----------------------------------------------------------------------
 * Supply
+* -----------------------------------------------------------------------
 Vdd vdd 0 1.8
 
-* Bias and Stimulus
-Vbias vbias 0 {vbias}
-Vin vin 0 pulse(0.85 0.95 1u 1n 1n 5u 10u) DC 0.9 AC 1
+* -----------------------------------------------------------------------
+* Bias voltages
+* -----------------------------------------------------------------------
+Vbias_n vbias_n 0 {vbias_n}
+Vbias_p vbias_p 0 {vbias_p}
 
-* Circuit — Telescopic Cascode
-* Input transistor M1
-XM1 mid vin 0 0 sky130_fd_pr__nfet_01v8 w={{W_in}} l={{L}}
-* Cascode transistor M2
-XM2 vout vbias mid 0 sky130_fd_pr__nfet_01v8 w={{W_cas}} l={{L}}
-* PMOS load (diode-connected)
-XM3 vout vout vdd vdd sky130_fd_pr__pfet_01v8 w={{W_in}} l={{L}}
+* -----------------------------------------------------------------------
+* Differential input
+* -----------------------------------------------------------------------
+Vin_p vin_p 0 DC 0.9 pulse(0.89 0.91 1u 100n 100n 2u 5u) AC 0.5
+Vin_n vin_n 0 DC 0.9 AC -0.5
 
-* Load Capacitor
+* -----------------------------------------------------------------------
+* Tail current source
+* -----------------------------------------------------------------------
+Ibias_tail tail 0 DC {i_tail}u
+
+* -----------------------------------------------------------------------
+* Telescopic Cascode OTA
+* -----------------------------------------------------------------------
+
+* --- NMOS input diff pair ---
+XM1 node1 vin_n tail 0 sky130_fd_pr__nfet_01v8 w={w_diff}u l={l_diff}u
+XM2 node2 vin_p tail 0 sky130_fd_pr__nfet_01v8 w={w_diff}u l={l_diff}u
+
+* --- NMOS cascode devices ---
+XM3 out_n vbias_n node1 0 sky130_fd_pr__nfet_01v8 w={w_cascode}u l={l_cascode}u
+XM4 vout  vbias_n node2 0 sky130_fd_pr__nfet_01v8 w={w_cascode}u l={l_cascode}u
+
+* --- PMOS cascode devices ---
+XM7 out_n vbias_p cm_n vdd sky130_fd_pr__pfet_01v8 w={w_load}u l={l_cascode}u
+XM8 vout  vbias_p v_load_p vdd sky130_fd_pr__pfet_01v8 w={w_load}u l={l_cascode}u
+
+* --- PMOS active-load current mirror (Top level) ---
+XM5 cm_n     cm_n vdd vdd sky130_fd_pr__pfet_01v8 w={w_load}u l={l_cascode}u
+XM6 v_load_p cm_n vdd vdd sky130_fd_pr__pfet_01v8 w={w_load}u l={l_cascode}u
+
+* -----------------------------------------------------------------------
+* Output load capacitor
+* -----------------------------------------------------------------------
 CL vout 0 0.5p
 
-* Analysis
-.dc Vin 0.6 1.2 0.01
-.ac dec 50 10 1G
-.tran 10n 20u
+* -----------------------------------------------------------------------
+* Analyses (stripped and re-injected by the orchestrator)
+* -----------------------------------------------------------------------
+.dc Vin_p 0.8 1.0 0.002
+.ac dec 50 10 100Meg
+.tran 1n 30u
 .end
 """
     return netlist

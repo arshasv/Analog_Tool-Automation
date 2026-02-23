@@ -28,7 +28,6 @@ def generate_netlist(width: float = 2.0, length: float = 0.15) -> str:
 * @AC_EXPR: vdb(vout_p,vout_n)
 * @TRAN_EXPR: v(vout_p,vout_n)
 * @DC_EXPR: v(vout_p,vout_n)
-.lib "{lib_path}" tt
 
 * Parameters
 .param W_n = {width}u

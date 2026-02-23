@@ -11,7 +11,7 @@ import importlib.util
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,8 @@ def _load_generate_netlist(file_path: str):
 
 class AnalysisOrchestrator:
     """Orchestrate separate, properly-sequenced circuit analyses"""
+
+    _sky130_model_include_cache: Dict[str, Tuple[str, str]] = {}
 
     @staticmethod
     def _get_circuit_netlist(file_path: str, parameters: Dict[str, Any]) -> str:
@@ -96,6 +98,28 @@ class AnalysisOrchestrator:
 """
 
     @staticmethod
+    def _validate_sky130_compatibility(netlist_path: str) -> bool:
+        """Validate that .options compat=ps is first directive for Sky130 compatibility."""
+        try:
+            with open(netlist_path, "r") as f:
+                lines = f.readlines()
+            
+            # Find first non-comment, non-empty line
+            for line in lines:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("*"):
+                    if stripped.startswith(".options compat=ps"):
+                        return True
+                    else:
+                        logger.error(f"Sky130 validation failed: First directive is '{stripped}', expected '.options compat=ps'")
+                        return False
+            logger.error("Sky130 validation failed: No directives found in netlist")
+            return False
+        except Exception as e:
+            logger.error(f"Sky130 validation error: {e}")
+            return False
+
+    @staticmethod
     def generate_dc_netlist(
         process_id: str,
         circuit_name: str,
@@ -129,6 +153,10 @@ class AnalysisOrchestrator:
 
         # Force PDK path consistency
         fixed_lines = [AnalysisOrchestrator._fix_pdk_paths(l) for l in filtered]
+        # Only inject Sky130 subcircuit includes if using Sky130 subcircuit models
+        has_sky130_subckt = any("sky130_fd_pr__" in l.lower() for l in filtered)
+        if has_sky130_subckt:
+            fixed_lines = AnalysisOrchestrator._inject_explicit_sky130_model_includes(fixed_lines)
 
         # 1. Detect if the original netlist already has a .dc sweep
         dc_sweep_line = ""
@@ -138,7 +166,12 @@ class AnalysisOrchestrator:
                 break
 
         with open(netlist_path, "w") as f:
+            # CRITICAL: Sky130 compatibility mode must be FIRST directive
             f.write(f"* Parametric DC Analysis for {circuit_name}\n")
+            f.write(".options compat=ps\n")
+            f.write(".options reltol=1e-3 gmin=1e-12 scale=1u\n")
+            f.write(".lib \"/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice\" tt\n")
+            f.write(".temp 27\n")
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
@@ -146,10 +179,10 @@ class AnalysisOrchestrator:
                 if not isinstance(v, (int, float)):
                     continue
                 # If it's W or L, wrap in clamp
-                if k.lower().startswith("w_"):
-                    f.write(f".param {k} = {{clampW({v}u)}}\n")
-                elif k.lower().startswith("l_"):
-                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                if k.lower().startswith("w_") or k.lower() == "width":
+                    f.write(f".param {k} = {{clampW({v})}}\n")
+                elif k.lower().startswith("l_") or k.lower() == "length":
+                    f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")
             
@@ -158,9 +191,11 @@ class AnalysisOrchestrator:
             
             if dc_sweep_line:
                 f.write(f"\n\n* DC Sweep Analysis (Extracted)\n")
+                # Top-level .dc — auto-runs before .control executes in ngspice batch mode.
+                # DO NOT call 'run' inside .control (double-run bug).
                 f.write(f"{dc_sweep_line}\n")
                 f.write(".control\n")
-                f.write("run\n")
+                f.write("set ngbehavior=hs\n")
                 f.write("set filetype=ascii\n")
                 sweep_var = ""
                 m_sweep = re.search(r"\.dc\s+([^\s]+)", dc_sweep_line, re.IGNORECASE)
@@ -191,17 +226,23 @@ class AnalysisOrchestrator:
 
                             break
                 
+                f.write("run\n")
                 f.write(f"wrdata {process_id}_dc_sweep.csv {plot_var}\n")
-                f.write("print all\n")
                 f.write(".endc\n")
             else:
                 f.write("\n\n* DC Operating Point Analysis\n")
+                # Top-level .op — auto-runs before .control in ngspice batch mode.
                 f.write(".op\n")
                 f.write(".control\n")
+                f.write("set ngbehavior=hs\n")
                 f.write("run\n")
                 f.write("print all\n")
                 f.write(".endc\n")
             f.write(".end\n")
+
+        # Validate Sky130 compatibility before returning
+        if not AnalysisOrchestrator._validate_sky130_compatibility(netlist_path):
+            raise RuntimeError(f"Sky130 compatibility validation failed for {netlist_path}")
 
         return str(netlist_path)
 
@@ -226,6 +267,116 @@ class AnalysisOrchestrator:
         return line
 
     @staticmethod
+    def _extract_lib_path_from_line(line: str) -> Optional[Path]:
+        """Extract .lib file path from a SPICE .lib line."""
+        m = re.search(r"\.lib\s+\"([^\"]+)\"", line, re.IGNORECASE)
+        if not m:
+            m = re.search(r"\.lib\s+(\S+)", line, re.IGNORECASE)
+            if not m:
+                return None
+        raw = m.group(1).strip()
+        if raw.lower() in {"tt", "ss", "ff"}:
+            return None
+        return Path(raw)
+
+    @staticmethod
+    def _find_first_matching_file(root: Path, patterns: List[str]) -> Optional[Path]:
+        """Find the first file matching one of the patterns under root."""
+        if not root.exists():
+            return None
+        for pattern in patterns:
+            for candidate in sorted(root.rglob(pattern)):
+                if candidate.is_file():
+                    return candidate
+        return None
+
+    @staticmethod
+    def _resolve_explicit_sky130_tt_models(lib_path: Path) -> Optional[Tuple[Path, Path]]:
+        """Resolve TT nfet/pfet include files for full Sky130 installs."""
+        cache_key = str(lib_path)
+        if cache_key in AnalysisOrchestrator._sky130_model_include_cache:
+            nfet, pfet = AnalysisOrchestrator._sky130_model_include_cache[cache_key]
+            return Path(nfet), Path(pfet)
+
+        if not lib_path.exists():
+            return None
+
+        pdk_root = lib_path
+        if lib_path.parent.name == "ngspice" and lib_path.parent.parent.name == "libs.tech":
+            pdk_root = lib_path.parent.parent.parent
+
+        search_roots = [
+            pdk_root / "models",
+            pdk_root / "libs.ref" / "sky130_fd_pr" / "spice",
+            pdk_root / "libs.tech" / "ngspice",
+        ]
+
+        nfet_patterns = [
+            "sky130_fd_pr__nfet_01v8__tt*.spice",
+            "*nfet*01v8*tt*.spice",
+            "sky130_fd_pr__nfet_01v8*.spice",
+        ]
+        pfet_patterns = [
+            "sky130_fd_pr__pfet_01v8__tt*.spice",
+            "*pfet*01v8*tt*.spice",
+            "sky130_fd_pr__pfet_01v8*.spice",
+        ]
+
+        nfet_file = None
+        pfet_file = None
+        for root in search_roots:
+            if nfet_file is None:
+                nfet_file = AnalysisOrchestrator._find_first_matching_file(root, nfet_patterns)
+            if pfet_file is None:
+                pfet_file = AnalysisOrchestrator._find_first_matching_file(root, pfet_patterns)
+            if nfet_file and pfet_file:
+                break
+
+        if not (nfet_file and pfet_file):
+            return None
+
+        AnalysisOrchestrator._sky130_model_include_cache[cache_key] = (str(nfet_file), str(pfet_file))
+        return nfet_file, pfet_file
+
+    @staticmethod
+    def _inject_explicit_sky130_model_includes(lines: List[str]) -> List[str]:
+        """Insert explicit TT nfet/pfet includes when full-PDK model files are available."""
+        already_has_nfet = any("nfet_01v8" in l.lower() and ".include" in l.lower() for l in lines)
+        already_has_pfet = any("pfet_01v8" in l.lower() and ".include" in l.lower() for l in lines)
+        if already_has_nfet and already_has_pfet:
+            return lines
+
+        out_lines: List[str] = []
+        injected = False
+        for line in lines:
+            out_lines.append(line)
+            if injected:
+                continue
+
+            l_lower = line.lower()
+            if ".lib" not in l_lower or "sky130.lib.spice" not in l_lower:
+                continue
+
+            lib_path = AnalysisOrchestrator._extract_lib_path_from_line(line)
+            if lib_path is None:
+                continue
+
+            resolved = AnalysisOrchestrator._resolve_explicit_sky130_tt_models(lib_path)
+            if not resolved:
+                logger.info(
+                    "No explicit sky130 nfet/pfet TT model files found near %s; using .lib corner only.",
+                    lib_path,
+                )
+                continue
+
+            nfet_file, pfet_file = resolved
+            out_lines.append(f'.include "{nfet_file}"')
+            out_lines.append(f'.include "{pfet_file}"')
+            injected = True
+
+        return out_lines
+
+    @staticmethod
     def _extract_metadata(netlist: str) -> Dict[str, str]:
         """Extract metadata hints from SPICE comments like * @AC_EXPR: db(i(rload))"""
         meta = {}
@@ -242,6 +393,17 @@ class AnalysisOrchestrator:
             if "@AC_SOURCE:" in line:
                 meta["ac_source"] = line.split("@AC_SOURCE:")[1].strip()
         return meta
+
+    @staticmethod
+    def _normalize_ac_vector_expr(expr: str) -> str:
+        """Convert AC expression wrappers (db/vdb/mag/vm) to the underlying complex vector."""
+        if not expr:
+            return "v(vout)"
+        raw = expr.strip()
+        m = re.match(r"^(?:vdb|db|mag|vm)\((.+)\)$", raw, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return raw
 
     @staticmethod
     def generate_ac_netlist(
@@ -279,6 +441,10 @@ class AnalysisOrchestrator:
             
         # Force PDK path consistency
         fixed_lines = [AnalysisOrchestrator._fix_pdk_paths(l) for l in filtered]
+        # Only inject Sky130 subcircuit includes if using Sky130 subcircuit models
+        has_sky130_subckt = any("sky130_fd_pr__" in l.lower() for l in filtered)
+        if has_sky130_subckt:
+            fixed_lines = AnalysisOrchestrator._inject_explicit_sky130_model_includes(fixed_lines)
 
         # Ensure an AC source exists for Bode plots
         ac_source = meta.get("ac_source")
@@ -308,40 +474,54 @@ class AnalysisOrchestrator:
         points_per_dec = 50
         ac_csv_name = f"{process_id}_ac.csv"
         
-        # Determine expression to plot
+        # Determine expression to export and plot
         if "ac_expr" in meta:
             ac_expr = meta["ac_expr"]
         elif circuit_type == "current_mirror":
-            ac_expr = "db(i(rload))" if "rload" in circuit_netlist.lower() else "vdb(vout)"
+            ac_expr = "i(rload)" if "rload" in circuit_netlist.lower() else "v(vout)"
         else:
-            ac_expr = "vdb(vout)"
+            ac_expr = "v(vout)"
+        ac_raw_expr = AnalysisOrchestrator._normalize_ac_vector_expr(ac_expr)
+        ac_db_expr = f"db({ac_raw_expr})"
         
         with open(netlist_path, "w") as f:
+            # CRITICAL: Sky130 compatibility mode must be FIRST directive
             f.write(f"* Parametric AC Analysis for {circuit_name}\n")
+            f.write(".options compat=ps\n")
+            f.write(".options reltol=1e-3 gmin=1e-12 scale=1u\n")
+            f.write(".lib \"/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice\" tt\n")
+            f.write(".temp 27\n")
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
             for k, v in parameters.items():
                 if not isinstance(v, (int, float)):
                     continue
-                if k.lower().startswith("w_"):
-                    f.write(f".param {k} = {{clampW({v}u)}}\n")
-                elif k.lower().startswith("l_"):
-                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                if k.lower().startswith("w_") or k.lower() == "width":
+                    f.write(f".param {k} = {{clampW({v})}}\n")
+                elif k.lower().startswith("l_") or k.lower() == "length":
+                    f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")
             
             f.write("\n* Circuit Implementation\n")
             f.write("\n".join(fixed_lines))
             f.write("\n\n* AC Analysis\n")
-            f.write(f".ac dec {points_per_dec} {start_freq} {stop_freq}\n")
+            # Top-level .ac directive — ngspice batch mode auto-runs this before .control executes.
+            # DO NOT call 'run' inside .control: that triggers a second AC sweep which fails
+            # ("no data saved for A.C.") and wipes the first run's data before wrdata can export it.
+            f.write(f".ac dec {points_per_dec} {int(start_freq)} {int(stop_freq)}\n")
             f.write(".control\n")
+            f.write("set ngbehavior=hs\n")
             f.write("run\n")
             f.write("set filetype=ascii\n")
-            f.write(f"wrdata {ac_csv_name} {ac_expr}\n")
-            f.write(f"print {ac_expr}\n")
+            f.write(f"wrdata {ac_csv_name} {ac_raw_expr}\n")
             f.write(".endc\n")
             f.write(".end\n")
+
+        # Validate Sky130 compatibility before returning
+        if not AnalysisOrchestrator._validate_sky130_compatibility(netlist_path):
+            raise RuntimeError(f"Sky130 compatibility validation failed for {netlist_path}")
 
         return str(netlist_path)
 
@@ -378,6 +558,10 @@ class AnalysisOrchestrator:
             
         # Force PDK path consistency
         fixed_lines = [AnalysisOrchestrator._fix_pdk_paths(l) for l in filtered]
+        # Only inject Sky130 subcircuit includes if using Sky130 subcircuit models
+        has_sky130_subckt = any("sky130_fd_pr__" in l.lower() for l in filtered)
+        if has_sky130_subckt:
+            fixed_lines = AnalysisOrchestrator._inject_explicit_sky130_model_includes(fixed_lines)
         
         tran_csv_name = f"{process_id}_tran.csv"
 
@@ -390,33 +574,43 @@ class AnalysisOrchestrator:
             tran_expr = "v(vout)"
 
         with open(netlist_path, "w") as f:
+            # CRITICAL: Sky130 compatibility mode must be FIRST directive
             f.write(f"* Parametric Transient Analysis for {circuit_name}\n")
+            f.write(".options compat=ps\n")
+            f.write(".options reltol=1e-3 gmin=1e-12 scale=1u\n")
+            f.write(".lib \"/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice\" tt\n")
+            f.write(".temp 27\n")
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
             for k, v in parameters.items():
                 if not isinstance(v, (int, float)):
                     continue
-                if k.lower().startswith("w_"):
-                    f.write(f".param {k} = {{clampW({v}u)}}\n")
-                elif k.lower().startswith("l_"):
-                    f.write(f".param {k} = {{clampL({v}u)}}\n")
+                if k.lower().startswith("w_") or k.lower() == "width":
+                    f.write(f".param {k} = {{clampW({v})}}\n")
+                elif k.lower().startswith("l_") or k.lower() == "length":
+                    f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")
             
             f.write("\n* Circuit Implementation\n")
             f.write("\n".join(fixed_lines))
             f.write("\n\n* Transient Analysis\n")
-            f.write(".tran 1n 10u\n")
+            # Top-level .tran — auto-runs in ngspice batch mode before .control executes.
+            # DO NOT call 'run' inside .control: same double-run problem as AC analysis.
+            f.write(".tran 1n 30u\n")
             f.write(".control\n")
+            f.write("set ngbehavior=hs\n")
             f.write("run\n")
             # Export real transient waveform for Python plotting
             f.write("set filetype=ascii\n")
             f.write(f"wrdata {tran_csv_name} {tran_expr}\n")
-            # Keep a simple print for debugging
-            f.write(f"print {tran_expr}\n")
             f.write(".endc\n")
             f.write(".end\n")
+
+        # Validate Sky130 compatibility before returning
+        if not AnalysisOrchestrator._validate_sky130_compatibility(netlist_path):
+            raise RuntimeError(f"Sky130 compatibility validation failed for {netlist_path}")
 
         return str(netlist_path)
 

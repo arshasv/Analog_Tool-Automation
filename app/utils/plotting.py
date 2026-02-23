@@ -1,16 +1,27 @@
-"""Simple plotting helpers for simulation outputs using matplotlib.
-
-Creates PNG plots for DC (Operating Point), AC (Bode magnitude), and Transient (time response).
-"""
+"""Plotting helpers for simulation outputs using matplotlib."""
 from io import BytesIO
 import logging
-from typing import Dict, Any, List, Sequence
+from typing import Dict, Sequence
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def create_missing_data_plot(title: str, detail: str) -> bytes:
+    """Create a non-deceptive placeholder plot when simulation waveform data is unavailable."""
+    buf = BytesIO()
+    plt.figure(figsize=(6.5, 2.8))
+    plt.text(0.5, 0.58, title, ha='center', va='center', fontsize=11, fontweight='bold')
+    plt.text(0.5, 0.35, detail, ha='center', va='center', fontsize=9)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(buf, format='png', dpi=150)
+    plt.close()
+    buf.seek(0)
+    return buf.read()
 
 def create_dc_plot(op_results: Dict[str, float]) -> bytes:
     """Create a bar chart for DC operating point results."""
@@ -60,41 +71,10 @@ def create_dc_plot(op_results: Dict[str, float]) -> bytes:
     return buf.read()
 
 def create_ac_plot(ac_results: Dict[str, float]) -> bytes:
-    """Create synthetic Bode magnitude plot from AC results."""
-    buf = BytesIO()
-    
-    if not ac_results:
-        return b""
-
-    gain_db = float(ac_results.get('gain_db', 0.0))
-    bw = float(ac_results.get('bandwidth_hz', 1e6))
-    
-    # If practically no gain, just return empty or simple flat line
-    # if gain_db == 0.0 and bw == 0.0:
-    #     return b""
-
-    f = np.logspace(1, 8, num=400)  # 10 Hz to 100 MHz
-    # First-order roll-off around bandwidth: magnitude (linear)
-    mag_lin = 10 ** (gain_db / 20.0) / np.sqrt(1.0 + (f / bw) ** 2)
-    mag_linear = 10 ** (gain_db / 20.0)
-    mag_rollout = mag_linear / np.sqrt(1.0 + (f / (bw + 1e-9)) ** 2)
-    # Floor at -120dB instead of -400dB for better visual sanity when data is zero
-    mag_db = 20.0 * np.log10(mag_rollout + 1e-6)
-
-    plt.figure(figsize=(6, 3.5))
-    plt.semilogx(f, mag_db, color='red', alpha=0.3, linestyle='--')
-    plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    plt.title('AC Magnitude (FALLBACK: No Simulation Data)')
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Magnitude (dB)')
-    plt.text(0.5, 0.5, "NOT REAL DATA", ha='center', va='center', 
-             transform=plt.gca().transAxes, fontsize=20, color='red', alpha=0.2)
-    plt.tight_layout()
-    plt.savefig(buf, format='png', dpi=150)
-    plt.close()
-
-    buf.seek(0)
-    return buf.read()
+    """Legacy entrypoint retained for compatibility; does not generate synthetic waveforms."""
+    if ac_results:
+        logger.warning("create_ac_plot called without AC sweep waveform; skipping synthetic fallback.")
+    return b""
 
 
 def create_ac_plot_from_data(freq: Sequence[float], mag_db: Sequence[float]) -> bytes:
@@ -118,38 +98,53 @@ def create_ac_plot_from_data(freq: Sequence[float], mag_db: Sequence[float]) -> 
         logger.warning(f"Failed to create AC plot from data: {e}")
         return b""
 
-def create_transient_plot(tran_results: Dict[str, float]) -> bytes:
-    """Create synthetic transient step response plot."""
+
+def create_ac_bode_plot_from_complex(freq: Sequence[float], response: Sequence[complex]) -> bytes:
+    """Create Bode magnitude + phase from complex AC response."""
     buf = BytesIO()
-    
-    if not tran_results:
+    try:
+        if not freq or not response:
+            return b""
+        if len(freq) != len(response):
+            logger.warning("AC plot data length mismatch: freq=%d response=%d", len(freq), len(response))
+            return b""
+
+        freq_arr = np.asarray(freq, dtype=float)
+        resp_arr = np.asarray(response, dtype=complex)
+        valid = np.isfinite(freq_arr) & np.isfinite(resp_arr.real) & np.isfinite(resp_arr.imag) & (freq_arr > 0.0)
+        if not np.any(valid):
+            return b""
+
+        freq_arr = freq_arr[valid]
+        resp_arr = resp_arr[valid]
+        mag_db = 20.0 * np.log10(np.maximum(np.abs(resp_arr), 1e-30))
+        phase_deg = np.unwrap(np.angle(resp_arr)) * 180.0 / np.pi
+
+        fig, axes = plt.subplots(2, 1, figsize=(7, 5.2), sharex=True)
+        axes[0].semilogx(freq_arr, mag_db, linewidth=1.4, color='blue')
+        axes[0].set_ylabel('Magnitude (dB)')
+        axes[0].set_title('AC Bode Plot (Simulated)')
+        axes[0].grid(True, which='both', linestyle='--', alpha=0.5)
+
+        axes[1].semilogx(freq_arr, phase_deg, linewidth=1.4, color='darkorange')
+        axes[1].set_xlabel('Frequency (Hz)')
+        axes[1].set_ylabel('Phase (deg)')
+        axes[1].grid(True, which='both', linestyle='--', alpha=0.5)
+
+        fig.tight_layout()
+        fig.savefig(buf, format='png', dpi=150)
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+    except Exception as e:
+        logger.warning(f"Failed to create AC bode plot from complex data: {e}")
         return b""
 
-    settling_us = float(tran_results.get('settling_time_us', 1.0))
-    overshoot_mv = float(tran_results.get('overshoot_mv', 0.0))
-
-    t = np.linspace(0, max(10.0 * settling_us, 1.0), num=400)
-    # Simple step response: 1 - exp(-t/tau) with overshoot
-    tau = settling_us / 3.0 if settling_us > 0 else 0.1
-    step = 1.0 - np.exp(-t / (tau + 1e-9))
-    # Add overshoot as a brief peak
-    peak = overshoot_mv / 1000.0
-    step = step + peak * np.exp(-((t - tau) ** 2) / (0.5 * tau ** 2))
-
-    plt.figure(figsize=(6, 3.5))
-    plt.plot(t, step, color='red', alpha=0.3, linestyle='--')
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.title('Transient Response (FALLBACK: No Simulation Data)')
-    plt.xlabel('Time (us)')
-    plt.ylabel('Value (approx)')
-    plt.text(0.5, 0.5, "NOT REAL DATA", ha='center', va='center', 
-             transform=plt.gca().transAxes, fontsize=20, color='red', alpha=0.2)
-    plt.tight_layout()
-    plt.savefig(buf, format='png', dpi=150)
-    plt.close()
-
-    buf.seek(0)
-    return buf.read()
+def create_transient_plot(tran_results: Dict[str, float]) -> bytes:
+    """Legacy entrypoint retained for compatibility; does not generate synthetic waveforms."""
+    if tran_results:
+        logger.warning("create_transient_plot called without transient waveform; skipping synthetic fallback.")
+    return b""
 
 
 def create_transient_plot_from_data(time: Sequence[float], value: Sequence[float]) -> bytes:

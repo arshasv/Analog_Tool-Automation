@@ -11,11 +11,11 @@ import os
 import glob
 from app.utils.plotting import (
     create_dc_plot,
-    create_ac_plot,
-    create_transient_plot,
     create_ac_plot_from_data,
+    create_ac_bode_plot_from_complex,
     create_transient_plot_from_data,
     create_dc_sweep_plot,
+    create_missing_data_plot,
 )
 
 logger = logging.getLogger(__name__)
@@ -219,6 +219,56 @@ class NgSpiceExecutor:
             logger.error(f"Error loading ASCII data from {path}: {e}")
 
         return x_vals, y_vals
+
+    @staticmethod
+    def _load_ac_complex_from_ascii(path: Path) -> Tuple[List[float], List[complex]]:
+        """Load frequency and complex AC response from ngspice wrdata ASCII output."""
+        freq_vals: List[float] = []
+        resp_vals: List[complex] = []
+        if not path.exists():
+            return freq_vals, resp_vals
+
+        try:
+            with open(path, "r") as f:
+                for line in f:
+                    parts = line.split()
+                    if not parts:
+                        continue
+                    try:
+                        if len(parts) >= 4:
+                            freq = float(parts[0])
+                            c1 = float(parts[1])
+                            c2 = float(parts[2])
+                            c3 = float(parts[3])
+                            # ngspice can emit either:
+                            # 1) x_re x_im y_re y_im
+                            # 2) x y_re x_im y_im (observed in some wrdata outputs)
+                            # Detect by checking whether col3 matches the sweep scale.
+                            denom = max(abs(freq), 1e-30)
+                            if abs(c2 - freq) / denom < 1e-9:
+                                y_re, y_im = c1, c3
+                            else:
+                                y_re, y_im = c2, c3
+                        elif len(parts) == 3:
+                            # Alternate form: x y_re y_im
+                            freq = float(parts[0])
+                            y_re = float(parts[1])
+                            y_im = float(parts[2])
+                        elif len(parts) == 2:
+                            # Real-only fallback
+                            freq = float(parts[0])
+                            y_re = float(parts[1])
+                            y_im = 0.0
+                        else:
+                            continue
+                        freq_vals.append(freq)
+                        resp_vals.append(complex(y_re, y_im))
+                    except (ValueError, IndexError):
+                        continue
+        except Exception as e:
+            logger.error(f"Error loading AC complex data from {path}: {e}")
+
+        return freq_vals, resp_vals
     
     @staticmethod
     def run_analysis_sequence(
@@ -263,8 +313,19 @@ class NgSpiceExecutor:
                     if "mirror" in str(dc_netlist).lower():
                         x_lbl, y_lbl = "Reference Current (A)", "Output Current (A)"
                     
-                    png_bytes = create_dc_sweep_plot(x, y, x_label=x_lbl, y_label=y_lbl)
-                else:
+                    # If we have sweep data but results["operating_point"] is empty, 
+                    # extract the "last" value from sweep as a representative OP.
+                    if x and y and not results["operating_point"]:
+                        # Extract the variable name from the netlist to avoid hardcoding
+                        with open(dc_netlist, "r") as f:
+                            netlist_content = f.read()
+                            # Find wrdata... line
+                            m_wr = re.search(r"wrdata\s+\S+\s+([^\s\n]+)", netlist_content)
+                            plot_var = m_wr.group(1) if m_wr else "v(vout)"
+                            
+                        m_var = re.search(r"([a-z])\(([^\)]+)\)", plot_var.lower())
+                        key = f"{m_var.group(1)}_{m_var.group(2)}" if m_var else "val"
+                        results["operating_point"][key] = y[-1]
                     png_bytes = create_dc_plot(results["operating_point"])
                 
                 if png_bytes:
@@ -290,11 +351,18 @@ class NgSpiceExecutor:
                 ac_ascii = output_dir / f"{process_id}_ac.csv"
                 if ac_ascii.exists():
                     logger.info(f"Found AC sweep data at {ac_ascii}, generating real plot.")
-                    freq, mag_db = NgSpiceExecutor._load_xy_from_ascii(ac_ascii)
-                    png_bytes = create_ac_plot_from_data(freq, mag_db)
+                    freq, response = NgSpiceExecutor._load_ac_complex_from_ascii(ac_ascii)
+                    png_bytes = create_ac_bode_plot_from_complex(freq, response)
+                    if not png_bytes:
+                        # Backward compatibility path for already-db-exported AC files.
+                        freq_scalar, mag_db = NgSpiceExecutor._load_xy_from_ascii(ac_ascii)
+                        png_bytes = create_ac_plot_from_data(freq_scalar, mag_db)
                 else:
-                    logger.info(f"AC sweep data {ac_ascii} not found, using synthetic fallback.")
-                    png_bytes = create_ac_plot(results["ac_analysis"])
+                    logger.warning(f"AC sweep data {ac_ascii} not found; skipping synthetic fallback.")
+                    png_bytes = create_missing_data_plot(
+                        "AC Plot Not Generated",
+                        f"Missing waveform export: {ac_ascii.name}"
+                    )
                 
                 if png_bytes:
                     plot_path = output_dir / f"{process_id}_ac.png"
@@ -322,8 +390,11 @@ class NgSpiceExecutor:
                     t, v = NgSpiceExecutor._load_xy_from_ascii(tran_ascii)
                     png_bytes = create_transient_plot_from_data(t, v)
                 else:
-                    logger.info(f"Transient data {tran_ascii} not found, using synthetic fallback.")
-                    png_bytes = create_transient_plot(results["transient_analysis"])
+                    logger.warning(f"Transient data {tran_ascii} not found; skipping synthetic fallback.")
+                    png_bytes = create_missing_data_plot(
+                        "Transient Plot Not Generated",
+                        f"Missing waveform export: {tran_ascii.name}"
+                    )
                 
                 if png_bytes:
                     plot_path = output_dir / f"{process_id}_tran.png"

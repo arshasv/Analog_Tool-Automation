@@ -6,8 +6,8 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app
-      # Optional: mount full Sky130 PDK to override bundled minimal lib
-      # - /usr/local/share/pdk/sky130A:/opt/pdk:ro
+      # Mount full Sky130 PDK for proper BSIM4 models
+      - /usr/local/share/pdk/sky130A:/opt/pdk:ro
     environment:
       - WORK_DIR=/app/data/designs
       - SKY130_PDK=/opt/sky130_pdk/sky130A

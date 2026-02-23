@@ -21,7 +21,6 @@ def generate_netlist(width: float = 2.0, length: float = 1.0) -> str:
 * @AC_EXPR: db(-i(Vmeas))
 * @TRAN_EXPR: -i(Vmeas)
 * @DC_EXPR: -i(Vmeas)
-.lib "{lib_path}" tt
 
 * Parameters
 .param W = {width}u
