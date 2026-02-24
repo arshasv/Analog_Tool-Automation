@@ -15,13 +15,11 @@
 .model nmos nmos (level=1 kp=100u vto=0.5 gamma=0.5 phi=0.7 cgso=1n cgdo=1n cj=1m)
 .model pmos pmos (level=1 kp=50u vto=-0.5 gamma=0.5 phi=0.7 cgso=1n cgdo=1n cj=1m)
 
-.subckt sky130_fd_pr__nfet_01v8 d g s b
-.param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
+.subckt sky130_fd_pr__nfet_01v8 d g s b w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
 M1 d g s b nmos_01v8 w={w} l={l}
 .ends
 
-.subckt sky130_fd_pr__pfet_01v8 d g s b
-.param w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
+.subckt sky130_fd_pr__pfet_01v8 d g s b w=1u l=1u nf=1 ad=0 as=0 pd=0 ps=0 nrd=0 nrs=0 sa=0 sb=0 sd=0 mult=1
 M1 d g s b pmos_01v8 w={w} l={l}
 .ends
 

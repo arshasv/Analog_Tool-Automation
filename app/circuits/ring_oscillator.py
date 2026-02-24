@@ -1,24 +1,14 @@
 """
 Sky130 Ring Oscillator (VCO) - Netlist Generator
 
-Odd-number chain of CMOS inverters connected in a ring.
-Oscillation frequency depends on gate delay, which is
-controlled by supply voltage or transistor sizing.
-
-Upload via POST /api/v1/run with optional parameters:
-  - stages (int): Number of inverter stages, must be odd (default: 5)
-  - w_n (float): NMOS width in um (default: 1.0)
-  - w_p (float): PMOS width in um (default: 2.0)
-  - l (float): Channel length in um (default: 0.15)
+Standardized with scale=1u compatibility and high-fidelity analysis hints.
 """
 
 import os
 
-
 def generate_netlist(stages: int = 5, w_n: float = 1.0,
                      w_p: float = 2.0, l: float = 0.15) -> str:
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
-    lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     if stages % 2 == 0:
         stages += 1  # Force odd
@@ -40,30 +30,30 @@ def generate_netlist(stages: int = 5, w_n: float = 1.0,
     inverter_block = "\n".join(inv_lines)
 
     netlist = f"""* Sky130 {stages}-Stage Ring Oscillator
+* Generator: ring_oscillator.py
 * @AC_SOURCE: Vdd
 * @AC_EXPR: vdb(n0)
 * @TRAN_EXPR: v(n0)
 * @DC_EXPR: v(n0)
-.lib "{lib_path}" tt
 
-* Parameters
-.param W_n = {w_n}u
-.param W_p = {w_p}u
-.param L = {l}u
+* Parameters (scale=1u is applied by orchestrator)
+.param W_n = {w_n}
+.param W_p = {w_p}
+.param L = {l}
 
-* Supply (Pulse kickstart)
-Vdd vdd 0 pulse(0 1.8 1u 1n 1n 50u 100u) AC 1
+* Supply (Kickstart pulse to ensure start)
+Vdd vdd 0 DC 1.8 pulse(0 1.8 1n 1n 1n 100u 200u) AC 1
 
-* Initial condition
+* Initial condition to break symmetry
 .ic v(n0)=0
 
-* Circuit
+* Circuit Implementation
 {inverter_block}
 
 * Analysis
-.dc Vdd 1.2 1.8 0.01
-.ac dec 50 10 10G
-.tran 0.1n 10u
+.dc Vdd 1.0 1.8 0.01
+.ac dec 100 10 10G
+.tran 0.05n 5u
 .end
 """
     return netlist

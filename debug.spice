@@ -1,0 +1,93 @@
+* Debug op
+.lib "/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
+* Parametric DC Analysis for proc_60ead0d5acaa_cascode_amplifier
+.options compat=ps
+.options reltol=1e-3 gmin=1e-12 scale=1u
+.lib "/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
+.temp 27
+
+* Sky130 DRC Safe Clamps
+.func clampW(x) = {max(0.42u, min(x, 50u))}
+.func clampL(x) = {max(0.15u, min(x, 5u))}
+
+* Computed Parameters
+.param vbias_p = 0.7
+.param vbias_n = 1.1
+.param i_tail = 20.0
+.param l_cascode = {clampL(0.5)}
+.param l_diff = {clampL(0.5)}
+.param w_bias = {clampW(2.0)}
+.param w_load = {clampW(20.0)}
+.param w_cascode = {clampW(5.0)}
+.param w_diff = {clampW(10.0)}
+.param i_tail_A = 1.9999999999999998e-05
+
+* Circuit Implementation
+* Sky130 Telescopic Cascode OTA
+* Generator: cascode_amplifier.py
+* @AC_SOURCE: Vin_p
+* @AC_EXPR: vdb(vout)
+* @TRAN_EXPR: v(vout)
+* @DC_EXPR: v(vout)
+
+* -----------------------------------------------------------------------
+* Supply & Bias
+* -----------------------------------------------------------------------
+Vdd vdd 0 1.8
+Vbias_n vbias_n 0 1.1
+Vbias_p vbias_p 0 0.7
+
+* -----------------------------------------------------------------------
+* Differential input
+* Vin_p has DC for sweep, Pulse for TRAN, and AC for Bode.
+* -----------------------------------------------------------------------
+Vin_p vin_p 0 DC 0.9 pulse(0.89 0.91 1u 100n 100n 2u 5u) AC 0.5
+Vin_n vin_n 0 DC 0.9 AC -0.5
+
+* -----------------------------------------------------------------------
+* Tail current source
+* -----------------------------------------------------------------------
+Ibias_tail tail 0 DC 20.0u
+
+* -----------------------------------------------------------------------
+* Telescopic Cascode OTA Implementation
+* -----------------------------------------------------------------------
+
+* NMOS input differential pair (Transconductance)
+XM1 node1 vin_n tail 0 sky130_fd_pr__nfet_01v8 w=10.0 l=0.5
+XM2 node2 vin_p tail 0 sky130_fd_pr__nfet_01v8 w=10.0 l=0.5
+
+* NMOS cascode devices (Increase output impedance)
+XM3 out_n vbias_n node1 0 sky130_fd_pr__nfet_01v8 w=5.0 l=0.5
+XM4 vout  vbias_n node2 0 sky130_fd_pr__nfet_01v8 w=5.0 l=0.5
+
+* PMOS cascode devices (Increase output impedance)
+XM7 out_n vbias_p cm_n vdd sky130_fd_pr__pfet_01v8 w=20.0 l=0.5
+XM8 vout  vbias_p v_load_p vdd sky130_fd_pr__pfet_01v8 w=20.0 l=0.5
+
+* PMOS active-load current mirror (High-side load)
+XM5 cm_n     cm_n vdd vdd sky130_fd_pr__pfet_01v8 w=20.0 l=0.5
+XM6 v_load_p cm_n vdd vdd sky130_fd_pr__pfet_01v8 w=20.0 l=0.5
+
+* Output load capacitor
+CL vout 0 0.5p
+
+* -----------------------------------------------------------------------
+* Analyses
+* -----------------------------------------------------------------------
+
+* DC Sweep Analysis (Extracted)
+
+
+set ngbehavior=hs
+set filetype=ascii
+run
+wrdata proc_60ead0d5acaa_dc_sweep.csv v(vout)
+
+
+.op
+.control
+run
+print all
+.endc
+.end

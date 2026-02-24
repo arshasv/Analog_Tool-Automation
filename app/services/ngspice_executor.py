@@ -312,20 +312,27 @@ class NgSpiceExecutor:
                     # Heuristic for better labels
                     if "mirror" in str(dc_netlist).lower():
                         x_lbl, y_lbl = "Reference Current (A)", "Output Current (A)"
+                    elif "cascode" in str(dc_netlist).lower() or "opamp" in str(dc_netlist).lower() or "differential" in str(dc_netlist).lower():
+                        x_lbl, y_lbl = "Input Voltage (V)", "Output Voltage (V)"
+                    elif "bandgap" in str(dc_netlist).lower():
+                        x_lbl, y_lbl = "Temperature (C)", "Reference Voltage (V)"
+                    elif "ring_osc" in str(dc_netlist).lower() or "vco" in str(dc_netlist).lower():
+                        x_lbl, y_lbl = "Supply Voltage (V)", "Output Node (V)"
+                    elif "ldo" in str(dc_netlist).lower():
+                        x_lbl, y_lbl = "Unregulated Supply (V)", "Regulated Output (V)"
                     
-                    # If we have sweep data but results["operating_point"] is empty, 
-                    # extract the "last" value from sweep as a representative OP.
+                    png_bytes = create_dc_sweep_plot(x, y, x_label=x_lbl, y_label=y_lbl)
+                    
+                    # Also extract the "last" value from sweep as a representative OP
                     if x and y and not results["operating_point"]:
-                        # Extract the variable name from the netlist to avoid hardcoding
                         with open(dc_netlist, "r") as f:
                             netlist_content = f.read()
-                            # Find wrdata... line
                             m_wr = re.search(r"wrdata\s+\S+\s+([^\s\n]+)", netlist_content)
                             plot_var = m_wr.group(1) if m_wr else "v(vout)"
-                            
                         m_var = re.search(r"([a-z])\(([^\)]+)\)", plot_var.lower())
                         key = f"{m_var.group(1)}_{m_var.group(2)}" if m_var else "val"
                         results["operating_point"][key] = y[-1]
+                else:
                     png_bytes = create_dc_plot(results["operating_point"])
                 
                 if png_bytes:

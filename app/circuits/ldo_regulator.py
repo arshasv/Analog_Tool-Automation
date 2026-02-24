@@ -1,77 +1,56 @@
 """
 Sky130 Low Dropout Regulator (LDO) - Netlist Generator
 
-PMOS-pass LDO with error amplifier feedback loop.
-Regulates output voltage from unregulated supply.
-
-Upload via POST /api/v1/run with optional parameters:
-  - w_pass (float): Pass transistor width in um (default: 100.0)
-  - l_pass (float): Pass transistor length in um (default: 0.5)
-  - w_ea (float): Error amp transistor width in um (default: 5.0)
-  - l_ea (float): Error amp transistor length in um (default: 1.0)
-  - r1 (float): Feedback top resistor in Ohms (default: 100000)
-  - r2 (float): Feedback bottom resistor in Ohms (default: 100000)
-  - cl (float): Output capacitor in uF (default: 1.0)
+Standardized with scale=1u compatibility and high-fidelity analysis hints.
 """
 
 import os
-
 
 def generate_netlist(w_pass: float = 100.0, l_pass: float = 0.5,
                      w_ea: float = 5.0, l_ea: float = 1.0,
                      r1: float = 100000, r2: float = 100000,
                      cl: float = 1.0) -> str:
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
-    lib_path = f"{pdk}/libs.tech/ngspice/sky130.lib.spice"
 
     netlist = f"""* Sky130 Low Dropout Regulator (LDO)
+* Generator: ldo_regulator.py
 * @AC_SOURCE: Vdd
 * @AC_EXPR: vdb(vout)
 * @TRAN_EXPR: v(vout)
 * @DC_EXPR: v(vout)
-.lib "{lib_path}" tt
 
-* Parameters
-.param W_pass = {w_pass}u
-.param L_pass = {l_pass}u
-.param W_ea = {w_ea}u
-.param L_ea = {l_ea}u
+* Parameters (scale=1u is applied by orchestrator)
+.param W_pass = {w_pass}
+.param L_pass = {l_pass}
+.param W_ea = {w_ea}
+.param L_ea = {l_ea}
 
-* Unregulated supply (Pulse for line regulation transient)
-Vdd vdd 0 pulse(3.0 3.6 10u 1n 1n 40u 80u) AC 1
-
-* Reference voltage
+* Unregulated supply
+Vdd vdd 0 DC 3.3 pulse(3.0 3.6 10u 1n 1n 40u 80u) AC 1
 Vref vref 0 1.2
 
-* === Error Amplifier (simple diff pair) ===
-* Tail current
+* Error Amplifier (simple diff pair)
 Itail ea_tail 0 50u
-
-* Diff pair: compares Vref to feedback voltage
 XM1 ea_out1 vref ea_tail 0 sky130_fd_pr__nfet_01v8 w={{W_ea}} l={{L_ea}}
 XM2 ea_out vfb ea_tail 0 sky130_fd_pr__nfet_01v8 w={{W_ea}} l={{L_ea}}
-
-* PMOS active load
 XM3 ea_out1 ea_out1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_ea}} l={{L_ea}}
 XM4 ea_out ea_out1 vdd vdd sky130_fd_pr__pfet_01v8 w={{W_ea}} l={{L_ea}}
 
-* === Pass Transistor (PMOS) ===
+* Pass Transistor (PMOS)
 XM_pass vout ea_out vdd vdd sky130_fd_pr__pfet_01v8 w={{W_pass}} l={{L_pass}}
 
-* === Feedback Network ===
+* Feedback Network
 R1 vout vfb {r1}
 R2 vfb 0 {r2}
 
-* === Output Capacitor ===
+* Output Capacitor & Load
 CL vout 0 {cl}u
-
-* === Load ===
 Rload vout 0 100
 
 * Analysis
-.dc Vdd 2.5 3.5 0.01
-.ac dec 50 10 100Meg
-.tran 100n 150u
+.dc Vdd 2.0 5.0 0.1
+.ac dec 100 1 100Meg
+.tran 10n 150u
 .end
 """
     return netlist
