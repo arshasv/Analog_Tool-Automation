@@ -1,13 +1,17 @@
 """
 Sky130 CMOS Inverter - Netlist Generator
 
-Standardized with scale=1u compatibility and high-fidelity analysis hints.
+Parameters (all use consistent SI-prefix units for the parameter box):
+  - w_n, w_p (float): Transistor widths in µm (default 1.0, 2.0)
+  - l (float): Channel length in µm (default 0.15)
+  - cload (float): Output load capacitor in pF (default 0.01 = 10fF)
 """
 
 import os
 
 def generate_netlist(w_n: float = 1.0, w_p: float = 2.0,
-                     l: float = 0.15, cload: float = 10.0) -> str:
+                     l: float = 0.15, cload: float = 0.01) -> str:
+    """cload is in pF (e.g. 0.01 = 10fF, 1.0 = 1pF). SPICE appends the 'p' suffix."""
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
 
     netlist = f"""* Sky130 CMOS Inverter
@@ -30,8 +34,8 @@ Vin vin 0 DC 0.9 pulse(0 1.8 1u 1n 1n 5u 10u) AC 1
 XMn vout vin 0 0 sky130_fd_pr__nfet_01v8 w={{W_n}} l={{L}}
 XMp vout vin vdd vdd sky130_fd_pr__pfet_01v8 w={{W_p}} l={{L}}
 
-* Load (cload is in fF)
-Cload vout 0 {cload}f
+* Load (cload is in pF)
+Cload vout 0 {cload}p
 
 * Analysis
 .dc Vin 0 1.8 0.01

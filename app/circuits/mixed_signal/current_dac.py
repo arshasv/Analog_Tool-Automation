@@ -4,10 +4,10 @@ from app.circuits.primitives import nmos, resistor, capacitor
 ROLE = "DAC"
 TOPOLOGY_ROLE = "DAC"
 PORTS = ["d7", "d6", "d5", "d4", "d3", "d2", "d1", "d0", "iout", "vbias", "gnd"]
-DEFAULT_PARAMS = {"i_unit": 1e-6}
+DEFAULT_PARAMS = {"i_unit": 1.0}  # i_unit is in µA (e.g. 1.0 = 1µA per LSB)
 
 def generate_netlist(params: dict) -> str:
-    i_unit = params.get("i_unit", 1e-6)
+    i_unit = params.get("i_unit", 1.0)  # in µA
     netlist = [
         "* 8-bit Binary Weighted Current DAC",
         "* @AC_SOURCE: Vbias",

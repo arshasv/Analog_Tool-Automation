@@ -11,7 +11,7 @@ PORTS = ["vin+", "vin-", "vout", "vdd", "gnd"]
 DEFAULT_PARAMS = {
     "w_diff": 10.0, "l_diff": 0.5,
     "w_casc": 5.0,  "l_casc": 0.5,
-    "itail": 100e-6
+    "itail": 100.0  # µA (tail current)
 }
 
 def generate_netlist(params: dict) -> str:

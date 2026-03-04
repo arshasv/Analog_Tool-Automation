@@ -12,8 +12,8 @@ DEFAULT_PARAMS = {
     "w_diff": 10.0, "l_diff": 0.5,
     "w_load": 5.0,  "l_load": 0.5,
     "w_out": 20.0,  "l_out": 0.5,
-    "cc": 1e-12,
-    "itail": 50e-6
+    "cc": 1.0,       # pF (Miller compensation cap)
+    "itail": 50.0   # µA (tail current of diff pair)
 }
 
 def generate_netlist(params: dict) -> str:

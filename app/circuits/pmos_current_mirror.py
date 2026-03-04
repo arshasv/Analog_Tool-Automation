@@ -1,13 +1,17 @@
 """
 Sky130 PMOS Current Mirror - Netlist Generator
 
-Standardized with scale=1u compatibility and high-fidelity analysis hints.
+Parameters (all use consistent SI-prefix units for the parameter box):
+  - width (float): Transistor width in µm (default 4.0)
+  - length (float): Channel length in µm (default 0.5)
+  - iref (float): Reference current in µA (default 50.0)
 """
 
 import os
 
 def generate_netlist(width: float = 4.0, length: float = 0.5,
-                     iref: float = 50e-6) -> str:
+                     iref: float = 50.0) -> str:
+    """iref is in µA (e.g. 50.0 = 50µA). SPICE appends the 'u' suffix."""
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
 
     netlist = f"""* Sky130 PMOS Current Mirror
@@ -23,7 +27,7 @@ def generate_netlist(width: float = 4.0, length: float = 0.5,
 
 * Supply & Stimulus
 Vdd vdd 0 1.8
-Iref d_ref 0 DC {iref} pulse(40u 60u 1u 1n 1n 5u 10u) AC 1
+Iref d_ref 0 DC {iref}u pulse(40u 60u 1u 1n 1n 5u 10u) AC 1
 
 * Circuit Implementation
 XM1 d_ref d_ref vdd vdd sky130_fd_pr__pfet_01v8 w={{W}} l={{L}}

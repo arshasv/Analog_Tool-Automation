@@ -1,14 +1,18 @@
 """
 Sky130 Folded Cascode OTA - Netlist Generator
 
-Standardized with scale=1u compatibility and high-fidelity analysis hints.
+Parameters (all use consistent SI-prefix units for the parameter box):
+  - w_diff, w_casc, w_bias (float): Transistor widths in µm (default 5.0, 5.0, 2.0)
+  - l (float): Channel length in µm (default 1.0)
+  - itail (float): Tail current in µA (default 100.0)
 """
 
 import os
 
 def generate_netlist(w_diff: float = 5.0, w_casc: float = 5.0,
                      w_bias: float = 2.0, l: float = 1.0,
-                     itail: float = 100e-6) -> str:
+                     itail: float = 100.0) -> str:
+    """itail is in µA (e.g. 100.0 = 100µA). SPICE appends the 'u' suffix."""
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
 
     netlist = f"""* Sky130 Folded Cascode OTA
@@ -37,7 +41,7 @@ Vbcn vbcn 0 0.9
 Vbcp vbcp 0 0.9
 
 * NMOS Differential Pair
-Itail vs 0 {itail}
+Itail vs 0 {itail}u
 XM1 d1 vinp vs 0 sky130_fd_pr__nfet_01v8 w={{W_diff}} l={{L}}
 XM2 d2 vinn vs 0 sky130_fd_pr__nfet_01v8 w={{W_diff}} l={{L}}
 

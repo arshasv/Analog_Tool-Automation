@@ -1,13 +1,17 @@
 """
 Sky130 Comparator - Netlist Generator
 
-Standardized with scale=1u compatibility and high-fidelity analysis hints.
+Parameters (all use consistent SI-prefix units for the parameter box):
+  - w_diff, w_load (float): Transistor widths in µm (default 2.0, 4.0)
+  - l (float): Channel length in µm (default 0.5)
+  - itail (float): Tail current in µA (default 20.0)
 """
 
 import os
 
 def generate_netlist(w_diff: float = 2.0, w_load: float = 4.0,
-                     l: float = 0.5, itail: float = 20e-6) -> str:
+                     l: float = 0.5, itail: float = 20.0) -> str:
+    """itail is in µA (e.g. 20.0 = 20µA). SPICE appends the 'u' suffix."""
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
 
     netlist = f"""* Sky130 Comparator
@@ -29,7 +33,7 @@ Vin vin 0 DC 0.9 pulse(0.5 1.3 10u 1n 1n 40u 80u) AC 1
 
 * Circuit Implementation
 * Differential Pair
-Itail vs 0 {itail}
+Itail vs 0 {itail}u
 XM1 d1 vin vs 0 sky130_fd_pr__nfet_01v8 w={{W_diff}} l={{L}}
 XM2 d2 vref vs 0 sky130_fd_pr__nfet_01v8 w={{W_diff}} l={{L}}
 

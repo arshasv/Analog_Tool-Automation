@@ -1,14 +1,19 @@
 """
 Sky130 Charge Pump (PLL Building Block) - Netlist Generator
 
-Standardized with scale=1u compatibility and high-fidelity analysis hints.
+Parameters (all use consistent SI-prefix units for the parameter box):
+  - w_up, w_dn (float): Transistor widths in µm (default 5.0, 2.5)
+  - l (float): Channel length in µm (default 0.5)
+  - icp (float): Charge pump current in µA (default 10.0)
+  - c_filter (float): Loop filter main capacitor in pF (default 50.0)
 """
 
 import os
 
 def generate_netlist(w_up: float = 5.0, w_dn: float = 2.5,
-                     l: float = 0.5, icp: float = 10e-6,
+                     l: float = 0.5, icp: float = 10.0,
                      c_filter: float = 50.0) -> str:
+    """icp is in µA (e.g. 10.0 = 10µA). c_filter is in pF. SPICE appends 'u'/'p'."""
     pdk = os.environ.get("SKY130_PDK", "/opt/sky130_pdk/sky130A")
     c2 = c_filter / 10
 
@@ -31,9 +36,9 @@ Vdn dn 0 DC 0 PULSE(0 1.8 15n 0.1n 0.1n 2n 20n)
 Vup_b up_b 0 DC 1.8 PULSE(1.8 0 5n 0.1n 0.1n 2n 20n)
 
 * Bias Sources
-Ibias_p vdd p_bias {icp}
+Ibias_p vdd p_bias {icp}u
 XMp_diode p_bias p_bias vdd vdd sky130_fd_pr__pfet_01v8 w={{W_up}} l={{L}}
-Ibias_n n_bias 0 {icp}
+Ibias_n n_bias 0 {icp}u
 XMn_diode n_bias n_bias 0 0 sky130_fd_pr__nfet_01v8 w={{W_dn}} l={{L}}
 
 * Charge Pump Switches
