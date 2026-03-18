@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["circuits"])
 
 
-
-
 @router.post("/run", response_model=RunResponse)
 async def run_circuit(
     file: UploadFile = File(...),
@@ -180,3 +178,33 @@ async def download_results(process_id: str):
         media_type="application/zip", 
         headers={"Content-Disposition": f"attachment; filename=results_{process_id}.zip"}
     )
+
+
+@router.post("/introspect", response_model=Dict[str, Any])
+async def introspect_circuit(file: UploadFile = File(...)):
+    """Upload a circuit .py file and return inferred default parameters.
+
+    This uses the same AST-based parser as the /run endpoint, so the
+    returned JSON can be copy‑pasted directly into the `parameters`
+    field when calling /run.
+    """
+    work_dir = Path("data/designs")
+    uploads_dir = work_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    tmp_name = f"introspect_{uuid.uuid4().hex[:12]}_{file.filename}"
+    file_path = str(uploads_dir / tmp_name)
+
+    content = await file.read()
+    with open(file_path, "wb") as fh:
+        fh.write(content)
+
+    try:
+        inferred = PipelineExecutor.parse_parameters_from_file(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse parameters: {e}")
+
+    # Return in a form directly reusable as the `parameters` payload
+    return {
+        "parameters": inferred,
+    }

@@ -8,10 +8,13 @@ Defines:
   - Topology enumeration with constraint filtering
 """
 from enum import Enum
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field
 import itertools
 import logging
+import importlib
+import inspect
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +132,30 @@ def get_topology_complexity(t: Topology) -> int:
     score += {"none": 0, "miller": 2, "feedforward": 3}[t.comp]
     score += {"direct": 0, "source_follower": 2, "classAB": 4}[t.output]
     return score
+
+
+def get_circuit_parameters(circuit_name: str) -> Dict[str, Any]:
+    """
+    Dynamically imports a circuit class, inspects its model, and returns
+    a JSON-serializable dictionary of its parameters and their defaults.
+    """
+    module_name = f"app.circuits.{circuit_name}"
+    module = importlib.import_module(module_name)
+    
+    for name, obj in inspect.getmembers(module):
+        if inspect.isclass(obj) and hasattr(obj, 'Design') and issubclass(obj.Design, BaseModel):
+            design_model = obj.Design
+            
+            # Extract parameters and their defaults from the Pydantic model
+            schema = design_model.model_json_schema()
+            parameters = {}
+            if 'properties' in schema:
+                for param_name, details in schema['properties'].items():
+                    parameters[param_name] = details.get('default', 'No default value')
+            
+            return {
+                "circuit": obj.__name__,
+                "parameters": parameters
+            }
+            
+    raise AttributeError(f"No suitable class with a 'Design' Pydantic model found in {module_name}")
