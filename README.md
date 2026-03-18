@@ -58,17 +58,41 @@ The API will be available at `http://localhost:8000`.
 
 ## 📖 API Usage
 
-### Run a Simulation
+### 1. Introspect Circuit Parameters
+Use this to discover the default parameters for any compatible Python circuit file.
+
+**Endpoint**: `POST /api/v1/introspect`
+
+**Body** (form-data):
+-   `file`: Circuit `.py` file (e.g. `two_stage_opamp.py`).
+
+**Response** (simplified):
+```json
+{
+    "parameters": {
+        "w_diff": 8,
+        "w_load": 16,
+        "cc": 2,
+        "i_tail": 80
+    }
+}
+```
+
+You can copy this `parameters` object, edit values as needed, and paste it directly into the `parameters` field of the `/run` endpoint as JSON.
+
+### 2. Run a Simulation
 **Endpoint**: `POST /api/v1/run`
 
 **Parameters**:
--   `file`: The `.py` or `.spice` circuit file.
--   `parameters`: (Optional) JSON string of circuit parameters (e.g., `{"width": 5.0, "i_tail": 20}`).
+-   `file`: The circuit `.py` (or `.spice`) file.
+-   `parameters`: (Optional) JSON string of circuit parameters (e.g., `{"w_diff": 8, "w_load": 16, "cc": 2, "i_tail": 80}`).
 
-### Check Status
+The server parses this string with `json.loads(...)` and merges it with any defaults extracted from the circuit file.
+
+### 3. Check Status
 **Endpoint**: `GET /api/v1/status/{process_id}`
 
-### Download Results
+### 4. Download Results
 **Endpoint**: `GET /api/v1/download/{process_id}`
 
 ---

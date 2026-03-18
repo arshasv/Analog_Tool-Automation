@@ -72,6 +72,32 @@ This directory contains 20+ optimized templates.
 
 ---
 
+## 🧪 Parameter Introspection Workflow
+
+To make it easy to discover and reuse circuit defaults without manually reading each Python file, xEDA exposes a **parameter introspection** API that uses the same AST-based parser as the simulation pipeline:
+
+- **Introspect Parameters**  
+    **Endpoint**: `POST /api/v1/introspect`  
+    **Body**: form-data with a single field `file` containing a circuit `.py` file (e.g. `two_stage_opamp.py`).  
+    **Response**:
+    ```json
+    {
+        "parameters": {
+            "w_diff": 8,
+            "w_load": 16,
+            "cc": 2,
+            "i_tail": 80
+        }
+    }
+    ```
+
+- **Run with Parameters**  
+    Copy the returned `parameters` object and paste it (optionally edited) into the `parameters` field of `POST /api/v1/run` as a JSON string. This guarantees that the values match the circuit's `generate_netlist(...)` signature and any embedded `PARAMETERS` / `DEFAULT_PARAMS` dicts.
+
+This flow lets a user: *(1) upload a circuit once to discover sane defaults, (2) tweak the JSON, and (3) immediately re-simulate with the modified parameter set.*
+
+---
+
 ## 🐳 Deployment & PDK
 - **Containerization**: The entire stack is packaged in Docker, ensuring exact versions of `ngspice` and `magic/klayout`.
 - **Sky130 Integration**: The backend automatically injects the correct PDK library paths into generated netlists, leveraging the high-accuracy BSIM4 models.
