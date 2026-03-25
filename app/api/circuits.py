@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api/v1", tags=["circuits"])
 async def run_circuit(
     file: UploadFile = File(...),
     parameters: Optional[str] = Form(None),
+    mode: str = Form("simulate"),
     background_tasks: BackgroundTasks = None,
 ):
     """Upload circuit .py file and optional JSON parameters. Returns process_id."""
@@ -34,6 +35,11 @@ async def run_circuit(
             user_params = json.loads(parameters)
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+
+    # Normalise mode; default to simulate if unknown
+    mode = (mode or "simulate").lower()
+    if mode not in {"simulate", "optimize"}:
+        mode = "simulate"
 
     process_id = f"proc_{uuid.uuid4().hex[:12]}"
     work_dir = Path("data/designs")
@@ -59,20 +65,21 @@ async def run_circuit(
         "file_path": file_path,
         "filename": file.filename,
         "provided_parameters": user_params,
+        "mode": mode,
     }
 
     # Schedule background execution
     if background_tasks is not None:
         background_tasks.add_task(
             PipelineExecutor.run_circuit_from_file,
-            process_id, file_path, user_params,
+            process_id, file_path, user_params, mode,
         )
     else:
         import asyncio
         asyncio.create_task(
             asyncio.to_thread(
                 PipelineExecutor.run_circuit_from_file,
-                process_id, file_path, user_params,
+                process_id, file_path, user_params, mode,
             )
         )
 
@@ -81,6 +88,7 @@ async def run_circuit(
         filename=file.filename,
         status=ProcessStatus.RUNNING,
         parameters=user_params,
+        mode=mode,
         message="Circuit processing started.",
     )
 
@@ -98,6 +106,7 @@ async def get_status(process_id: str):
         status=proc["status"],
         progress=proc.get("progress", 0),
         parameters=proc.get("provided_parameters"),
+        mode=proc.get("mode", "simulate"),
         created_at=proc["created_at"],
         updated_at=proc.get("updated_at", proc["created_at"]),
         results=proc.get("results"),
@@ -164,11 +173,14 @@ async def download_results(process_id: str):
 
         # 4. Summary JSON
         summary = {
+            "mode": results.get("mode", proc.get("mode", "simulate")),
+            "status": proc["status"],
             "metrics": results.get("metrics"),
             "score": results.get("score"),
             "checks": results.get("checks"),
-            "status": proc["status"],
-            "errors": proc.get("errors", [])
+            "optimized_parameters": results.get("optimized_parameters"),
+            "iterations": results.get("iterations"),
+            "errors": proc.get("errors", []),
         }
         zf.writestr(f"summary_{process_id}.json", json.dumps(summary, indent=2))
 

@@ -11,6 +11,7 @@ from typing import Dict, Any, List
 from app.models.circuit import CircuitRequest, ProcessState, ProcessStatus
 from app.services.analysis_orchestrator import AnalysisOrchestrator, get_circuit_type_from_filename
 from app.services.ngspice_executor import NgSpiceExecutor, OptimizationObjectives
+from app.core.optimization.optimizer import WLOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class PipelineExecutor:
         process_id: str,
         file_path: str,
         parameters: Dict[str, Any] = None,
+        mode: str = "simulate",
     ):
         """Standard flow: simulate a specific uploaded file with parameters."""
         parameters = parameters or {}
@@ -78,47 +80,121 @@ class PipelineExecutor:
                 merged_params["cc_F"] = float(merged_params["cc"]) * 1e-12
             PipelineExecutor.processes[process_id]["parameters"] = merged_params
             
-            # 3. Create Analysis Sequence
+            # 3. Generate base circuit netlist once
             circuit_block = AnalysisOrchestrator._get_circuit_netlist(file_path, merged_params)
-            
-            analysis_paths = AnalysisOrchestrator.create_analysis_sequence(
-                process_id, circuit_name, merged_params, out_dir,
-                file_path=file_path
-            )
-            PipelineExecutor.processes[process_id]["progress"] = 30
-            
-            # 4. Run Simulations
-            sim_results = NgSpiceExecutor.run_analysis_sequence(
-                analysis_paths["dc"],
-                analysis_paths["ac"],
-                analysis_paths["transient"],
-                out_dir
-            )
-            PipelineExecutor.processes[process_id]["progress"] = 80
-            
-            # 5. Flatten results for fitness computation
-            # Combine AC and Transient metrics into a single flat dict
-            flat_metrics = {
-                **sim_results.get("operating_point", {}),
-                **sim_results.get("ac_analysis", {}),
-                **sim_results.get("transient_analysis", {})
-            }
-            
-            # 6. Compute Fitness (Vectorized)
-            objs = OptimizationObjectives.create_objectives_from_analysis(sim_results, circuit_name)
-            fitness_vector = OptimizationObjectives.compute_fitness(objs, flat_metrics)
-            
-            # 7. Finalize
-            PipelineExecutor.processes[process_id]["progress"] = 100
-            PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
-            PipelineExecutor.processes[process_id]["results"] = {
-                "metrics": fitness_vector["metrics"],
-                "score": fitness_vector["score"],
-                "checks": fitness_vector["checks"],
-                "netlists": analysis_paths,
-                "raw_output": sim_results,
-                "plots": sim_results.get("plots", [])
-            }
+
+            # Normalise mode and dispatch
+            mode_norm = (mode or "simulate").lower()
+            if mode_norm not in {"simulate", "optimize"}:
+                mode_norm = "simulate"
+            PipelineExecutor.processes[process_id]["mode"] = mode_norm
+
+            if mode_norm == "optimize":
+                # Split out non-W/L parameters used by higher level analyses
+                non_wl_params = {
+                    k: v for k, v in merged_params.items()
+                    if not str(k).lower().startswith(("w", "l"))
+                    and str(k).lower() not in {"width", "length"}
+                }
+
+                # Optional optimization targets and weights can be provided
+                targets = {
+                    "current": float(merged_params.get("I_target", merged_params.get("target_current", 0.0)) or 0.0),
+                    "gain": float(merged_params.get("gain_target", 0.0) or 0.0),
+                }
+                weights = {
+                    "w1": float(merged_params.get("w_current", 1.0) or 1.0),
+                    "w2": float(merged_params.get("w_gain", 1.0) or 1.0),
+                    "w3": float(merged_params.get("w_power", 1.0) or 1.0),
+                }
+                power_max = merged_params.get("power_max")
+                power_max_val = float(power_max) if power_max is not None else None
+
+                PipelineExecutor.processes[process_id]["progress"] = 20
+
+                optimizer = WLOptimizer()
+                opt_result = optimizer.optimize(
+                    process_id=process_id,
+                    circuit_name=circuit_name,
+                    base_netlist=circuit_block,
+                    base_parameters=non_wl_params,
+                    work_dir=out_dir,
+                    targets=targets,
+                    weights=weights,
+                    power_max=power_max_val,
+                )
+
+                PipelineExecutor.processes[process_id]["progress"] = 100
+                PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
+                PipelineExecutor.processes[process_id]["results"] = {
+                    "mode": "optimize",
+                    "optimized_parameters": opt_result.best_assignment,
+                    "metrics": opt_result.best_metrics,
+                    "iterations": opt_result.iterations,
+                    "history": opt_result.history,
+                    # For compatibility with existing consumers that
+                    # expect these keys, we leave them as None.
+                    "score": None,
+                    "checks": {},
+                    "netlists": {},
+                    "raw_output": {},
+                    "plots": [],
+                }
+
+                # Also write best point into design memory for future reuse
+                try:
+                    PipelineExecutor._store_design_memory({
+                        "process_id": process_id,
+                        "circuit": circuit_name,
+                        "topology": {},
+                        "parameters": {**non_wl_params, **opt_result.best_assignment},
+                        "metrics": opt_result.best_metrics,
+                        "score": -opt_result.best_cost,
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to store optimization design memory: {e}")
+
+            else:
+                # 3b. Standard simulate mode: create analysis sequence
+                analysis_paths = AnalysisOrchestrator.create_analysis_sequence(
+                    process_id, circuit_name, merged_params, out_dir,
+                    file_path=file_path
+                )
+                PipelineExecutor.processes[process_id]["progress"] = 30
+
+                # 4. Run Simulations
+                sim_results = NgSpiceExecutor.run_analysis_sequence(
+                    analysis_paths["dc"],
+                    analysis_paths["ac"],
+                    analysis_paths["transient"],
+                    out_dir
+                )
+                PipelineExecutor.processes[process_id]["progress"] = 80
+
+                # 5. Flatten results for fitness computation
+                # Combine AC and Transient metrics into a single flat dict
+                flat_metrics = {
+                    **sim_results.get("operating_point", {}),
+                    **sim_results.get("ac_analysis", {}),
+                    **sim_results.get("transient_analysis", {})
+                }
+
+                # 6. Compute Fitness (Vectorized)
+                objs = OptimizationObjectives.create_objectives_from_analysis(sim_results, circuit_name)
+                fitness_vector = OptimizationObjectives.compute_fitness(objs, flat_metrics)
+
+                # 7. Finalize
+                PipelineExecutor.processes[process_id]["progress"] = 100
+                PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
+                PipelineExecutor.processes[process_id]["results"] = {
+                    "mode": "simulate",
+                    "metrics": fitness_vector["metrics"],
+                    "score": fitness_vector["score"],
+                    "checks": fitness_vector["checks"],
+                    "netlists": analysis_paths,
+                    "raw_output": sim_results,
+                    "plots": sim_results.get("plots", [])
+                }
             
             # 7. Design Memory
             try:

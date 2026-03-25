@@ -44,6 +44,7 @@ class RunResponse(BaseModel):
     filename: str
     status: ProcessStatus
     parameters: Dict[str, Any]
+    mode: str = "simulate"
     message: Optional[str] = None
 
 
@@ -54,6 +55,7 @@ class StatusResponse(BaseModel):
     status: ProcessStatus
     progress: int = 0
     parameters: Optional[Dict[str, Any]] = None
+    mode: str = "simulate"
     results: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     created_at: Optional[datetime] = None
