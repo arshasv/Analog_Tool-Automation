@@ -130,6 +130,7 @@ class PipelineExecutor:
                     "mode": "optimize",
                     "optimized_parameters": opt_result.best_assignment,
                     "metrics": opt_result.best_metrics,
+                    "best_cost": opt_result.best_cost,
                     "iterations": opt_result.iterations,
                     "history": opt_result.history,
                     # For compatibility with existing consumers that

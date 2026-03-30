@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 
 from app.models.circuit import RunResponse, StatusResponse, ProcessStatus
 from app.services.pipeline_executor import PipelineExecutor
@@ -100,6 +100,36 @@ async def get_status(process_id: str):
         raise HTTPException(status_code=404, detail="Process not found")
 
     proc = PipelineExecutor.processes[process_id]
+    raw_results = proc.get("results") or {}
+    mode = proc.get("mode", "simulate").lower()
+
+    # For optimize mode, normalise results payload to mirror the
+    # JSON structure returned by the /download endpoint.
+    if mode == "optimize" and raw_results:
+        history = raw_results.get("history", [])
+        best_params = raw_results.get("optimized_parameters", {})
+        best_metrics = raw_results.get("metrics", {})
+        best_cost = raw_results.get("best_cost")
+        iterations = raw_results.get("iterations", 0)
+
+        normalized_results: Dict[str, Any] = {
+            "job_id": process_id,
+            "mode": "optimize",
+            "status": proc["status"],
+            "epochs": history,
+            "best": {
+                "parameters": best_params,
+                "metrics": best_metrics,
+                "cost": best_cost,
+            },
+            "summary": {
+                "iterations": iterations,
+                "errors": proc.get("errors", []),
+            },
+        }
+    else:
+        normalized_results = raw_results
+
     return StatusResponse(
         process_id=process_id,
         filename=proc.get("filename", "unknown"),
@@ -109,7 +139,7 @@ async def get_status(process_id: str):
         mode=proc.get("mode", "simulate"),
         created_at=proc["created_at"],
         updated_at=proc.get("updated_at", proc["created_at"]),
-        results=proc.get("results"),
+        results=normalized_results,
         error="; ".join(proc.get("errors", [])) or None,
     )
 
@@ -123,6 +153,35 @@ async def download_results(process_id: str):
     proc = PipelineExecutor.processes[process_id]
     results = proc.get("results") or {}
     work_dir = Path("data/designs")
+
+    mode = results.get("mode", proc.get("mode", "simulate")).lower()
+
+    # Optimization mode: return JSON-only log with no netlists or plots.
+    if mode == "optimize":
+        opt_results = results or {}
+        history = opt_results.get("history", [])
+        best_params = opt_results.get("optimized_parameters", {})
+        best_metrics = opt_results.get("metrics", {})
+        best_cost = opt_results.get("best_cost")
+        iterations = opt_results.get("iterations", 0)
+
+        payload = {
+            "job_id": process_id,
+            "mode": "optimize",
+            "status": proc["status"],
+            "epochs": history,
+            "best": {
+                "parameters": best_params,
+                "metrics": best_metrics,
+                "cost": best_cost,
+            },
+            "summary": {
+                "iterations": iterations,
+                "errors": proc.get("errors", []),
+            },
+        }
+
+        return JSONResponse(content=payload)
     
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:

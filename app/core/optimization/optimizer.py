@@ -12,6 +12,7 @@ no new simulation entry points are needed.
 from __future__ import annotations
 
 import logging
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Callable
@@ -88,50 +89,83 @@ class WLOptimizer:
         targets = targets or {}
         weights = weights or {}
 
-        variables = extract_wl_variables(base_netlist)
-        if not variables:
-            logger.warning("No W/L parameters detected in netlist; skipping optimization")
-            # Degenerate result: run a single simulation using base netlist.
-            metrics, cost = self._evaluate_assignment(
-                process_id + "_base",
+        # All SPICE netlists and intermediate artifacts for optimization runs
+        # are written into a temporary directory so that nothing persists on
+        # disk after the optimization completes.
+        with tempfile.TemporaryDirectory(prefix=f"opt_{process_id}_") as tmpdir:
+            sim_work_dir = Path(tmpdir)
+
+            variables = extract_wl_variables(base_netlist)
+            if not variables:
+                logger.warning("No W/L parameters detected in netlist; skipping optimization")
+                # Degenerate result: run a single simulation using base netlist.
+                metrics, cost = self._evaluate_assignment(
+                    process_id + "_base",
+                    circuit_name,
+                    base_netlist,
+                    base_parameters,
+                    variables,
+                    {name: var.value for name, var in variables.items()},
+                    sim_work_dir,
+                    targets,
+                    weights,
+                    power_max,
+                )
+                return OptimizationResult(
+                    best_assignment={name: var.value for name, var in variables.items()},
+                    best_metrics=metrics,
+                    best_cost=cost,
+                    iterations=0,
+                    history=[],
+                )
+
+            history: List[Dict[str, Any]] = []
+
+            # Stage 1: Coarse search
+            coarse_results = self._coarse_search(
+                process_id,
                 circuit_name,
                 base_netlist,
                 base_parameters,
                 variables,
-                {name: var.value for name, var in variables.items()},
-                work_dir,
+                sim_work_dir,
                 targets,
                 weights,
                 power_max,
-            )
-            return OptimizationResult(
-                best_assignment={name: var.value for name, var in variables.items()},
-                best_metrics=metrics,
-                best_cost=cost,
-                iterations=0,
-                history=[],
+                history,
             )
 
-        history: List[Dict[str, Any]] = []
+            best_assignment, best_metrics, best_cost = coarse_results
 
-        # Stage 1: Coarse search
-        coarse_results = self._coarse_search(
-            process_id,
-            circuit_name,
-            base_netlist,
-            base_parameters,
-            variables,
-            work_dir,
-            targets,
-            weights,
-            power_max,
-            history,
-        )
+            # Early exit if cost already good enough
+            if self.config.cost_threshold is not None and best_cost <= self.config.cost_threshold:
+                return OptimizationResult(
+                    best_assignment=best_assignment,
+                    best_metrics=best_metrics,
+                    best_cost=best_cost,
+                    iterations=len(history),
+                    history=history,
+                )
 
-        best_assignment, best_metrics, best_cost = coarse_results
+            # Stage 2: Nelder–Mead local search
+            nm_assignment, nm_metrics, nm_cost, nm_iters = self._nelder_mead(
+                process_id,
+                circuit_name,
+                base_netlist,
+                base_parameters,
+                variables,
+                sim_work_dir,
+                targets,
+                weights,
+                power_max,
+                best_assignment,
+                history,
+            )
 
-        # Early exit if cost already good enough
-        if self.config.cost_threshold is not None and best_cost <= self.config.cost_threshold:
+            # Choose the better of coarse vs local optimum
+            if nm_cost < best_cost:
+                best_assignment, best_metrics, best_cost = nm_assignment, nm_metrics, nm_cost
+
             return OptimizationResult(
                 best_assignment=best_assignment,
                 best_metrics=best_metrics,
@@ -139,33 +173,6 @@ class WLOptimizer:
                 iterations=len(history),
                 history=history,
             )
-
-        # Stage 2: Nelder–Mead local search
-        nm_assignment, nm_metrics, nm_cost, nm_iters = self._nelder_mead(
-            process_id,
-            circuit_name,
-            base_netlist,
-            base_parameters,
-            variables,
-            work_dir,
-            targets,
-            weights,
-            power_max,
-            best_assignment,
-            history,
-        )
-
-        # Choose the better of coarse vs local optimum
-        if nm_cost < best_cost:
-            best_assignment, best_metrics, best_cost = nm_assignment, nm_metrics, nm_cost
-
-        return OptimizationResult(
-            best_assignment=best_assignment,
-            best_metrics=best_metrics,
-            best_cost=best_cost,
-            iterations=len(history),
-            history=history,
-        )
 
     # ------------------------------------------------------------------
     # Internal helpers
