@@ -1,0 +1,40 @@
+.backend-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(45, 62, 80, 0.5);
+  border-radius: 20px;
+  border: 1px solid #2d3e50;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backend-status-badge:hover {
+  background: rgba(45, 62, 80, 0.8);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7f8c8d;
+}
+
+.success .status-dot {
+  background: #2ecc71;
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.error .status-dot {
+  background: #e74c3c;
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
+.status-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #e0e6ed;
+  letter-spacing: 0.05em;
+}

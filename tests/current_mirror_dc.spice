@@ -1,0 +1,43 @@
+* Sky130 Current Mirror - DC Sweep (FINAL FIXED)
+
+* ==== Required for Sky130 ====
+.option scale=1u
+.option ngbehavior=hs
+.option reltol=1e-3
+.option gmin=1e-12
+
+.temp 27
+
+* ==== Load Sky130 TT Corner ====
+.lib /usr/local/share/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* ==== Parameters ====
+.param W = 2
+.param L = 0.5
+
+* ==== Supply ====
+Vdd vdd 0 1.8
+
+* ==== Reference Current (DC Only for Sweep) ====
+Iref vdd d_ref DC 0
+
+* ==== Current Mirror ====
+XM1 d_ref d_ref 0 0 sky130_fd_pr__nfet_01v8 W={W} L={L}
+XM2 vout d_ref 0 0 sky130_fd_pr__nfet_01v8 W={W} L={L}
+
+* ==== Output Load ====
+Vmeas vout vload 0
+Rload vdd vload 10k
+Cout vout 0 1p
+
+* ==== DC Sweep ====
+.dc Iref 1u 200u 1u
+
+.control
+set ngbehavior=hs
+run
+plot i(Vmeas)
+wrdata dc_sweep.csv Iref i(Vmeas)
+.endc
+
+.end

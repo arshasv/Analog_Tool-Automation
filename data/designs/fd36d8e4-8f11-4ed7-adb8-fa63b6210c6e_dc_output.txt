@@ -1,0 +1,4 @@
+Error: Could not find library file /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice
+ERROR, library file /opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice not found
+
+ERROR: fatal error in ngspice, exit(1)

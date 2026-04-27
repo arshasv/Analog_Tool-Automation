@@ -1,0 +1,142 @@
+.dashboard {
+  --dashboard-bg: #08141d;
+  --dashboard-panel: rgba(8, 23, 33, 0.88);
+  --dashboard-border: rgba(128, 207, 255, 0.18);
+  --dashboard-text: rgba(240, 248, 255, 0.96);
+  --dashboard-muted: rgba(189, 211, 226, 0.72);
+  --dashboard-accent: #00e5ff;
+  --dashboard-accent-strong: #f4b23f;
+  --dashboard-success: #65d89b;
+  --dashboard-error: #e74c3c;
+  --dashboard-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
+  background:
+    radial-gradient(circle at top left, rgba(0, 229, 255, 0.1), transparent 32%),
+    radial-gradient(circle at top right, rgba(244, 178, 63, 0.1), transparent 28%),
+    linear-gradient(180deg, #071119 0%, #09151f 48%, #061018 100%);
+  padding: 1rem 1.5rem 4rem;
+  min-height: 100vh;
+}
+
+.nav-toggle {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.nav-toggle button {
+  padding: 0.6rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--dashboard-border);
+  background: var(--dashboard-panel);
+  color: var(--dashboard-muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+.nav-toggle button.active {
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--dashboard-accent);
+  border-color: rgba(0, 229, 255, 0.4);
+}
+
+.nav-toggle button:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.dashboard-shell {
+  max-width: 1380px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.95fr);
+  gap: 1.5rem;
+  padding: 2.5rem;
+  border-radius: 32px;
+  background: rgba(15, 46, 64, 0.9);
+  border: 1px solid var(--dashboard-border);
+  box-shadow: var(--dashboard-shadow);
+}
+
+.dashboard-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.1;
+  color: var(--dashboard-text);
+  margin: 0.5rem 0;
+  background: linear-gradient(135deg, var(--dashboard-accent), #fff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dashboard-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.95fr);
+  gap: 1.5rem;
+}
+
+.dashboard-panel {
+  padding: 2rem;
+  border-radius: 28px;
+  background: var(--dashboard-panel);
+  border: 1px solid var(--dashboard-border);
+  margin-bottom: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-primary-action {
+  width: 100%;
+  padding: 1.25rem;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, var(--dashboard-accent), #00b0ff);
+  color: #08141d;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dashboard-primary-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.status-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-pill-completed { background: rgba(101, 216, 155, 0.1); color: #65d89b; border: 1px solid rgba(101, 216, 155, 0.3); }
+.status-pill-running { background: rgba(0, 229, 255, 0.1); color: #00e5ff; border: 1px solid rgba(0, 229, 255, 0.3); }
+.status-pill-failed { background: rgba(231, 76, 60, 0.1); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
+
+.loading-overlay {
+  padding: 2rem;
+  text-align: center;
+  background: rgba(0,0,0,0.2);
+  border-radius: 20px;
+  margin-bottom: 1rem;
+  color: var(--dashboard-accent);
+  font-weight: 600;
+}
+
+.status-timeline {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 16px;
+}

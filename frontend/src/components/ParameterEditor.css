@@ -1,0 +1,96 @@
+.parameter-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.parameter-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parameter-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(45, 62, 80, 0.4);
+  border-radius: 8px;
+  gap: 1rem;
+}
+
+.param-info strong {
+  display: block;
+  font-size: 1rem;
+  color: #00e5ff;
+}
+
+.param-info span {
+  font-size: 0.8rem;
+  color: #8899a6;
+}
+
+.type-pill {
+  font-size: 0.75rem;
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  width: fit-content;
+  justify-self: center;
+}
+
+.param-input-container label {
+  display: block;
+  font-size: 0.7rem;
+  color: #8899a6;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.param-input-container input {
+  background: transparent;
+  border: 1px solid #2d3e50;
+  border-radius: 4px;
+  color: #e0e6ed;
+  padding: 6px 10px;
+  width: 100%;
+}
+
+.param-input-container input:focus {
+  border-color: #00e5ff;
+  outline: none;
+}
+
+.json-preview-card {
+  background: #0d1721;
+  border: 1px solid #1a2a3a;
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.json-preview-card span {
+  display: block;
+  font-size: 0.75rem;
+  color: #8899a6;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.1em;
+}
+
+.json-preview-card pre {
+  margin: 0;
+  color: #f1c40f;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+
+.parameter-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #8899a6;
+  background: rgba(45, 62, 80, 0.2);
+  border-radius: 8px;
+}
