@@ -99,8 +99,8 @@ class PipelineExecutor:
 
                 # Optional optimization targets and weights can be provided
                 targets = {
-                    "current": float(merged_params.get("I_target", merged_params.get("target_current", 0.0)) or 0.0),
-                    "gain": float(merged_params.get("gain_target", 0.0) or 0.0),
+                    "current": float(merged_params.get("I_target", merged_params.get("target_current", merged_params.get("target_current", 0.0))) or 0.0),
+                    "gain": float(merged_params.get("gain_target", merged_params.get("target_gain", 0.0)) or 0.0),
                 }
                 weights = {
                     "w1": float(merged_params.get("w_current", 1.0) or 1.0),
@@ -109,10 +109,26 @@ class PipelineExecutor:
                 }
                 power_max = merged_params.get("power_max")
                 power_max_val = float(power_max) if power_max is not None else None
+                
+                # Extract optimization settings from parameters
+                epochs = None
+                if "epochs" in merged_params:
+                    try:
+                        epochs = int(merged_params["epochs"])
+                    except (ValueError, TypeError):
+                        pass
 
                 PipelineExecutor.processes[process_id]["progress"] = 20
 
-                optimizer = WLOptimizer()
+                opt_config = None
+                if epochs:
+                    opt_config = WLOptimizer.config_class(epochs=epochs) if hasattr(WLOptimizer, 'config_class') else None
+                
+                # We'll use a local config if epochs is provided
+                from app.core.optimization.optimizer import OptimizationConfig
+                config = OptimizationConfig(epochs=epochs) if epochs else None
+                
+                optimizer = WLOptimizer(config=config)
                 opt_result = optimizer.optimize(
                     process_id=process_id,
                     circuit_name=circuit_name,

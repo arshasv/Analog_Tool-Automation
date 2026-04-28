@@ -91,6 +91,60 @@
   border: 1px solid var(--dashboard-border);
   margin-bottom: 1.5rem;
   backdrop-filter: blur(10px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard-panel:hover {
+  border-color: rgba(123, 223, 246, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 229, 255, 0.05);
+}
+
+.dashboard-input {
+  border-radius: 12px;
+  border: 1px solid var(--dashboard-border);
+  background: rgba(8, 20, 29, 0.5);
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.dashboard-input:focus {
+  border-color: var(--dashboard-accent);
+  background: rgba(8, 20, 29, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1);
+}
+
+.param-input-container label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--dashboard-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 600;
+}
+
+.type-pill {
+  padding: 4px 10px;
+  background: rgba(123, 223, 246, 0.1);
+  color: var(--dashboard-accent);
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.json-preview pre {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(4, 13, 20, 0.6);
+  border-radius: 12px;
+  color: #7bdff6;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
 }
 
 .dashboard-primary-action {
@@ -139,4 +193,44 @@
   padding: 1rem;
   background: rgba(255,255,255,0.03);
   border-radius: 16px;
+}
+
+.mode-toggle-group {
+  display: flex;
+  background: rgba(4, 13, 20, 0.4);
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--dashboard-border);
+  margin-bottom: 24px;
+  gap: 6px;
+  width: fit-content;
+}
+
+.mode-toggle-button {
+  padding: 10px 24px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--dashboard-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-toggle-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-toggle-button-active {
+  background: linear-gradient(135deg, var(--dashboard-accent), #00b0ff) !important;
+  color: #08141d !important;
+  box-shadow: 0 4px 15px rgba(0, 229, 255, 0.3);
+}
+
+.mode-toggle-button-active:hover {
+  filter: brightness(1.1);
 }

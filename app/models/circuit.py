@@ -61,3 +61,21 @@ class StatusResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+
+class OptimizationParams(BaseModel):
+    I_target: float = 0.0
+    gain_target: float = 0.0
+    power_max: Optional[float] = None
+    w_current: float = 1.0
+    w_gain: float = 1.0
+    w_power: float = 1.0
+    epochs: Optional[int] = 100
+
+
+class OptimizeRequest(BaseModel):
+    process_id: str
+    circuit_name: str
+    netlist: str
+    parameters: dict
+    optimization: OptimizationParams
+

@@ -14,8 +14,9 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import settings
-from app.models.circuit import ProcessStatus, RunResponse, StatusResponse
+from app.models.circuit import ProcessStatus, RunResponse, StatusResponse, OptimizeRequest
 from app.services.pipeline_executor import PipelineExecutor
+from app.core.optimization.optimizer import WLOptimizer, OptimizationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -244,3 +245,48 @@ async def introspect_circuit(file: UploadFile = File(...)):
     saved_file = await _save_upload(file, process_id)
     parameters = PipelineExecutor.parse_parameters_from_file(str(saved_file))
     return {"parameters": parameters}
+
+
+@router.post("/optimize")
+def optimize(req: OptimizeRequest):
+    """Directly run optimization using mapped parameters."""
+    opt = req.optimization
+
+    # Map UI keys to optimizer expected internal keys
+    targets = {
+        "current": opt.I_target,
+        "gain": opt.gain_target
+    }
+
+    weights = {
+        "w1": opt.w_current,
+        "w2": opt.w_gain,
+        "w3": opt.w_power
+    }
+
+    config = OptimizationConfig(
+        epochs=opt.epochs
+    )
+
+    optimizer = WLOptimizer(config)
+
+    result = optimizer.optimize(
+        process_id=req.process_id,
+        circuit_name=req.circuit_name,
+        base_netlist=req.netlist,
+        base_parameters=req.parameters,
+        work_dir=_work_dir(),
+        targets=targets,
+        weights=weights,
+        power_max=opt.power_max
+    )
+
+    # Return structured result similar to expectations
+    return {
+        "status": "COMPLETED",
+        "best_assignment": result.best_assignment,
+        "best_metrics": result.best_metrics,
+        "best_cost": result.best_cost,
+        "iterations": result.iterations,
+        "history": result.history
+    }

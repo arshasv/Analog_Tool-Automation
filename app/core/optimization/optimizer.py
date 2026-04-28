@@ -40,6 +40,7 @@ class OptimizationConfig:
     coarse_samples: int = 12
     top_n: int = 5
     cost_threshold: float | None = None
+    epochs: int | None = None  # New field for user-defined epochs
 
 
 @dataclass
@@ -122,6 +123,10 @@ class WLOptimizer:
             history: List[Dict[str, Any]] = []
 
             # Stage 1: Coarse search
+            # If epochs is provided, we use it to scale the coarse search
+            if self.config.epochs:
+                self.config.coarse_samples = max(4, int(self.config.epochs * 0.3))
+
             coarse_results = self._coarse_search(
                 process_id,
                 circuit_name,

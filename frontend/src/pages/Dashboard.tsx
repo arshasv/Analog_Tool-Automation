@@ -12,50 +12,50 @@ interface Parameter {
   type: string;
 }
 
+
 const Dashboard: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [params, setParams] = useState<Parameter[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, any>>({});
+  const [optimizationParams, setOptimizationParams] = useState<Record<string, any>>({});
   const [mode, setMode] = useState<'simulate' | 'optimize'>('simulate');
+
+  // Reset behavior when switching modes
+  useEffect(() => {
+    if (mode === 'simulate') {
+      setOptimizationParams({});
+    }
+  }, [mode]);
   const [processId, setProcessId] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'workflow' | 'results'>('workflow');
 
+  // Poll for status
   useEffect(() => {
-    if (!processId) {
-      return;
-    }
-
-    const currentStatus = status?.status?.toLowerCase();
-    if (currentStatus === 'completed' || currentStatus === 'success' || currentStatus === 'failed') {
-      return;
-    }
-
-    const interval = window.setInterval(async () => {
-      try {
-        const res = await api.getStatus(processId);
-        if (res.success && res.data) {
-          const nextStatus = res.data;
-          setStatus(nextStatus);
-
-          const normalizedNextStatus = nextStatus.status.toLowerCase();
-          if (normalizedNextStatus === 'completed' || normalizedNextStatus === 'success') {
-            setActiveTab('results');
-            window.clearInterval(interval);
+    let interval: any;
+    const currentStatus = status?.status;
+    
+    if (processId && currentStatus !== 'COMPLETED' && currentStatus !== 'FAILED') {
+      interval = setInterval(async () => {
+        try {
+          const res = await api.getStatus(processId);
+          if (res.success && res.data) {
+            const newStatusData = res.data;
+            setStatus(newStatusData);
+            
+            if (newStatusData.status === 'COMPLETED' || newStatusData.status === 'SUCCESS') {
+               setActiveTab('results');
+               clearInterval(interval);
+            }
           }
-
-          if (normalizedNextStatus === 'failed') {
-            window.clearInterval(interval);
-          }
+        } catch (err) {
+          console.error("Polling error", err);
         }
-      } catch (err) {
-        console.error('Polling error', err);
-      }
-    }, 3000);
-
-    return () => window.clearInterval(interval);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
   }, [processId, status?.status]);
 
   const handleFileSelect = async (selectedFile: File) => {
@@ -108,12 +108,42 @@ const Dashboard: React.FC = () => {
     setParamValues(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleOptParamChange = (name: string, field: string, value: number) => {
+    // Basic validation for numeric input
+    if (isNaN(value)) return;
+    
+    setOptimizationParams(prev => ({
+      ...prev,
+      [name]: {
+        ...(prev[name] || {}),
+        [field]: value
+      }
+    }));
+  };
+
   const handleRun = async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.run(file, mode, paramValues);
+      let res;
+      if (mode === 'optimize') {
+        const optPayload = {
+          epochs: paramValues['epochs'] ? Number(paramValues['epochs']) : 100,
+          target_current: paramValues['target_current'] ? Number(paramValues['target_current']) : undefined,
+          target_gain: paramValues['target_gain'] ? Number(paramValues['target_gain']) : undefined,
+          params: Object.fromEntries(
+            Object.entries(optimizationParams).map(([name, opt]) => [
+              name,
+              { target: opt.target, initial: opt.initial }
+            ])
+          )
+        };
+        res = await api.run(file, mode, optPayload);
+      } else {
+        res = await api.run(file, mode, paramValues);
+      }
+
       setLoading(false);
       if (res.success && res.data) {
         setProcessId(res.data.process_id);
@@ -204,8 +234,35 @@ const Dashboard: React.FC = () => {
                   <ParameterEditor 
                     parameters={params} 
                     values={paramValues} 
-                    onChange={handleParamChange} 
+                    onChange={handleParamChange}
+                    optimizationParams={optimizationParams}
+                    onOptParamChange={handleOptParamChange}
+                    mode={mode}
                   />
+                </article>
+              )}
+
+              {mode === 'optimize' && (
+                <article className="dashboard-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <span className="panel-eyebrow">Optimization</span>
+                      <h2>Search History Configuration</h2>
+                    </div>
+                  </div>
+                  <div className="param-input-container">
+                    <label>Epochs (Iterations)</label>
+                    <input
+                      type="number"
+                      className="dashboard-input"
+                      value={paramValues['epochs'] ?? 100}
+                      onChange={(e) => handleParamChange('epochs', parseInt(e.target.value))}
+                      style={{ width: '100px' }}
+                    />
+                    <small className="muted" style={{ display: 'block', marginTop: '4px' }}>
+                      Higher values increase search accuracy but take longer.
+                    </small>
+                  </div>
                 </article>
               )}
 
@@ -235,7 +292,7 @@ const Dashboard: React.FC = () => {
                   onClick={handleRun}
                   disabled={!file || loading || (status?.status === 'RUNNING')}
                 >
-                  {status?.status === 'RUNNING' ? 'Running...' : `Run ${mode}`}
+                  {status?.status === 'RUNNING' ? 'Running...' : `Run ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
                 </button>
               </article>
             </div>
@@ -271,11 +328,12 @@ const Dashboard: React.FC = () => {
                 </article>
               )}
             </div>
+
           </section>
         ) : (
           <section className="dashboard-results-view">
              <article className="dashboard-panel">
-                <ResultsViewer status={status} />
+                <ResultsViewer status={status!} />
              </article>
           </section>
         )}
