@@ -4,6 +4,7 @@ import './ResultsViewer.css';
 
 interface ResultsViewerProps {
   status: StatusResponse | null;
+  onApplyOptimized?: (params: Record<string, any>) => void;
 }
 
 type ResultRecord = Record<string, unknown>;
@@ -20,7 +21,7 @@ function formatLabel(value: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .toUpperCase();
 }
 
 function formatValue(value: unknown): string {
@@ -65,7 +66,7 @@ function isRenderablePlotSource(value: string): boolean {
   );
 }
 
-const ResultsViewer: React.FC<ResultsViewerProps> = ({ status }) => {
+const ResultsViewer: React.FC<ResultsViewerProps> = ({ status, onApplyOptimized }) => {
   if (!status) {
     return (
       <div className="results-viewer results-viewer-placeholder">
@@ -74,6 +75,14 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ status }) => {
       </div>
     );
   }
+
+  const formatStatusText = (text: string) => {
+    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  };
+
+  const formatModeText = (text: string) => {
+    return text.toLowerCase() === 'simulate' ? 'Simulate' : 'Optimize';
+  };
 
   const normalizedStatus = status.status.toLowerCase();
   const results = isRecord(status.results) ? status.results : null;
@@ -127,39 +136,43 @@ console.log('Plots:', plots);
   return (
     <div className="results-viewer">
       <section className="results-header-summary">
-        <div className="results-summary-topline">
+        <div className="panel-heading">
           <div>
-            <span className="panel-eyebrow">Run Snapshot</span>
-            <h2>{mode === 'optimize' ? 'Optimization results' : 'Simulation results'}</h2>
-          </div>
-          <span className={`results-status-pill results-status-pill-${normalizedStatus}`}>
-            {status.status}
-          </span>
-        </div>
-
-        <div className="results-overview-grid">
-          <div className="overview-card">
-            <span>Process</span>
-            <strong>{status.process_id}</strong>
-          </div>
-          <div className="overview-card">
-            <span>Mode</span>
-            <strong>{formatLabel(mode)}</strong>
-          </div>
-          <div className="overview-card">
-            <span>Progress</span>
-            <strong>{typeof status.progress === 'number' ? `${status.progress}%` : 'N/A'}</strong>
-          </div>
-          <div className="overview-card">
-            <span>Updated</span>
-            <strong>{new Date(status.updated_at).toLocaleString()}</strong>
+            <span className="panel-eyebrow">RUN SNAPSHOT</span>
+            <h2>{mode === 'optimize' ? 'OPTIMIZATION RESULTS' : 'SIMULATION RESULTS'}</h2>
           </div>
         </div>
 
-        {resultError && <div className="error-text">{resultError}</div>}
+        <div className="results-header-table">
+          <div className="results-header-row">
+            <span className="label">ID</span>
+            <span className="value process-id">: {status.process_id}</span>
+          </div>
+          
+          <div className="results-header-row">
+            <span className="label">STATUS</span>
+            <div className="value">
+              : <span className={`value status-pill ${normalizedStatus}`}>
+                {formatStatusText(status.status)}
+              </span>
+            </div>
+          </div>
+
+          <div className="results-header-row">
+            <span className="label">MODE</span>
+            <span className="value">: {formatModeText(mode)}</span>
+          </div>
+
+          <div className="results-header-row">
+            <span className="label">UPDATED</span>
+            <span className="value">: {new Date(status.updated_at).toLocaleString()}</span>
+          </div>
+        </div>
+
+        {resultError && <div className="error-text" style={{ marginTop: '1rem' }}>{resultError}</div>}
 
         {canDownload && (
-          <div className="download-actions">
+          <div className="download-actions" style={{ marginTop: '1.5rem' }}>
             <a
               className="download-link-btn"
               href={api.getDownloadUrl(status.process_id)}
@@ -189,8 +202,7 @@ console.log('Plots:', plots);
       {metrics.length > 0 && (
         <section className="metrics-summary">
           <div className="section-header">
-            <h4>Performance Metrics</h4>
-            <span>{metrics.length} captured</span>
+            <h4>PERFORMANCE METRICS</h4>
           </div>
           <div className="metrics-grid">
             {metrics.map(([key, value]) => (
@@ -205,17 +217,34 @@ console.log('Plots:', plots);
 
       {mode === 'optimize' && (
         <section className="artifact-list">
-          <div className="artifact-head">
-            <h3>Optimization Summary</h3>
-            <span>{historyLength > 0 ? `${historyLength} history points` : 'Summary'}</span>
+          <div className="section-header">
+            <h4>OPTIMIZATION SUMMARY</h4>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {optimizedParameters.length > 0 && onApplyOptimized && (
+                <button 
+                  className="dashboard-primary-action"
+                  style={{ 
+                    padding: '4px 12px', 
+                    fontSize: '0.75rem', 
+                    margin: 0,
+                    height: 'auto',
+                    background: 'var(--accent)',
+                    color: '#FFFFFF'
+                  }}
+                  onClick={() => onApplyOptimized(isRecord(optimizedParametersSource) ? (optimizedParametersSource as Record<string, any>) : {})}
+                >
+                  APPLY & SIMULATE
+                </button>
+              )}
+            </div>
           </div>
           <div className="artifact">
-            <span>Best Cost</span>
-            <span>{formatValue(results?.best_cost)}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>BEST COST</span>
+            <strong style={{ color: 'var(--accent)' }}>{formatValue(results?.best_cost)}</strong>
           </div>
           <div className="artifact">
-            <span>Iterations</span>
-            <span>{formatValue(results?.iterations)}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ITERATIONS</span>
+            <strong>{formatValue(results?.iterations)}</strong>
           </div>
           {optimizedParameters.length > 0 && (
             <div className="results-key-value-grid">
@@ -232,14 +261,13 @@ console.log('Plots:', plots);
 
       {checks.length > 0 && (
         <section className="artifact-list">
-          <div className="artifact-head">
-            <h3>Checks</h3>
-            <span>Constraint review</span>
+          <div className="section-header">
+            <h4>CHECKS</h4>
           </div>
           {checks.map(([key, value]) => (
             <div key={key} className="artifact">
-              <span>{formatLabel(key)}</span>
-              <span>{formatValue(value)}</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{formatLabel(key)}</span>
+              <strong>{formatValue(value)}</strong>
             </div>
           ))}
         </section>
@@ -272,20 +300,19 @@ console.log('Plots:', plots);
 
       {(netlists.length > 0 || plots.length > 0) && (
         <section className="artifact-list">
-          <div className="artifact-head">
-            <h3>Artifacts</h3>
-            <span>{netlists.length + plots.length} available</span>
+          <div className="section-header">
+            <h4>ARTIFACTS</h4>
           </div>
           {netlists.map(([key, value]) => (
             <div key={key} className="artifact">
-              <span>{formatLabel(key)}</span>
-              <span>{typeof value === 'string' ? value.split('/').pop() : formatValue(value)}</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{formatLabel(key)}</span>
+              <strong>SPICE NETLIST</strong>
             </div>
           ))}
           {plots.map((plot, index) => (
             <div key={`${plot}-artifact-${index}`} className="artifact">
-              <span>{`Plot ${index + 1}`}</span>
-              <span>{plot.split('/').pop() ?? plot}</span>
+              <span>{`PLOT ${index + 1}`}</span>
+              <strong>{plot.split('/').pop() ?? plot}</strong>
             </div>
           ))}
         </section>

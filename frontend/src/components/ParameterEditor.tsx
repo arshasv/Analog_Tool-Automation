@@ -61,21 +61,21 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
               <div className="param-input-container">
                 <label>Target Current (I)</label>
                 <input
-                  type="number"
+                  type="text"
                   className="dashboard-input"
                   value={values['target_current'] ?? ''}
-                  onChange={(e) => onChange('target_current', parseFloat(e.target.value))}
-                  placeholder="e.g. 10u"
+                  onChange={(e) => onChange('target_current', e.target.value)}
+                  placeholder="e.g. 100u"
                   style={{ width: '100%' }}
                 />
               </div>
               <div className="param-input-container">
                 <label>Target Gain (dB)</label>
                 <input
-                  type="number"
+                  type="text"
                   className="dashboard-input"
                   value={values['target_gain'] ?? ''}
-                  onChange={(e) => onChange('target_gain', parseFloat(e.target.value))}
+                  onChange={(e) => onChange('target_gain', e.target.value)}
                   placeholder="e.g. 60"
                   style={{ width: '100%' }}
                 />
@@ -121,10 +121,10 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                   <div className="param-input-container">
                     <label>Target</label>
                     <input
-                      type="number"
+                      type="text"
                       className="dashboard-input"
                       value={optimizationParams[param.name]?.target ?? ''}
-                      onChange={(e) => onOptParamChange(param.name, 'target', parseFloat(e.target.value))}
+                      onChange={(e) => onOptParamChange(param.name, 'target', e.target.value)}
                       placeholder="Goal"
                       style={{ width: '100px' }}
                     />
@@ -132,10 +132,10 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                   <div className="param-input-container">
                     <label>Initial</label>
                     <input
-                      type="number"
+                      type="text"
                       className="dashboard-input"
                       value={optimizationParams[param.name]?.initial ?? ''}
-                      onChange={(e) => onOptParamChange(param.name, 'initial', parseFloat(e.target.value))}
+                      onChange={(e) => onOptParamChange(param.name, 'initial', e.target.value)}
                       placeholder="Start"
                       style={{ width: '100px' }}
                     />

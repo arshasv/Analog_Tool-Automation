@@ -134,6 +134,14 @@ class AnalysisOrchestrator:
         lines = circuit_netlist.splitlines()
         filtered = []
         in_control = False
+        
+        # Identify parameters that we will be injecting so we can filter them out of the source
+        # to avoid duplicate definition overrides.
+        params_to_filter = {k.lower() for k in parameters.keys()}
+        # Standard names to always filter if they appear in source but we have them in params
+        if "width" in params_to_filter: params_to_filter.add("w")
+        if "length" in params_to_filter: params_to_filter.add("l")
+
         for line in lines:
             stripped = line.strip().lower()
             if stripped.startswith(".control"):
@@ -146,6 +154,14 @@ class AnalysisOrchestrator:
                 continue
             if stripped.startswith((".tran", ".dc ", ".ac ", ".op", ".plot", ".end")):
                 continue
+            
+            # Filter out .param definitions for variables we are about to inject
+            if stripped.startswith(".param"):
+                parts = re.split(r"[\s=]+", stripped)
+                if len(parts) > 1 and parts[1] in params_to_filter:
+                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
+                    continue
+
             filtered.append(line)
         
         # Extract hints
@@ -196,6 +212,8 @@ class AnalysisOrchestrator:
                 f.write(f"{dc_sweep_line}\n")
                 f.write(".control\n")
                 f.write("set ngbehavior=hs\n")
+                # Debug: verify optimized parameters
+                f.write("print width length w l\n")
                 f.write("set filetype=ascii\n")
                 sweep_var = ""
                 m_sweep = re.search(r"\.dc\s+([^\s]+)", dc_sweep_line, re.IGNORECASE)
@@ -425,6 +443,12 @@ class AnalysisOrchestrator:
         lines = circuit_netlist.splitlines()
         filtered = []
         in_control = False
+        
+        # Identify parameters that we will be injecting so we can filter them out of the source
+        params_to_filter = {k.lower() for k in parameters.keys()}
+        if "width" in params_to_filter: params_to_filter.add("w")
+        if "length" in params_to_filter: params_to_filter.add("l")
+
         for line in lines:
             stripped = line.strip().lower()
             if stripped.startswith(".control"):
@@ -437,6 +461,14 @@ class AnalysisOrchestrator:
                 continue
             if stripped.startswith((".tran", ".dc ", ".ac ", ".plot", ".end")):
                 continue
+
+            # Filter out .param definitions for variables we are about to inject
+            if stripped.startswith(".param"):
+                parts = re.split(r"[\s=]+", stripped)
+                if len(parts) > 1 and parts[1] in params_to_filter:
+                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
+                    continue
+
             filtered.append(line)
             
         # Force PDK path consistency
@@ -513,6 +545,8 @@ class AnalysisOrchestrator:
             f.write(f".ac dec {points_per_dec} {int(start_freq)} {int(stop_freq)}\n")
             f.write(".control\n")
             f.write("set ngbehavior=hs\n")
+            # Debug: verify optimized parameters
+            f.write("print width length w l\n")
             f.write("run\n")
             f.write("set filetype=ascii\n")
             f.write(f"wrdata {ac_csv_name} {ac_raw_expr}\n")
@@ -542,6 +576,12 @@ class AnalysisOrchestrator:
         lines = circuit_netlist.splitlines()
         filtered = []
         in_control = False
+        
+        # Identify parameters that we will be injecting so we can filter them out of the source
+        params_to_filter = {k.lower() for k in parameters.keys()}
+        if "width" in params_to_filter: params_to_filter.add("w")
+        if "length" in params_to_filter: params_to_filter.add("l")
+
         for line in lines:
             stripped = line.strip().lower()
             if stripped.startswith(".control"):
@@ -554,6 +594,14 @@ class AnalysisOrchestrator:
                 continue
             if stripped.startswith((".tran", ".dc ", ".ac ", ".plot", ".end")):
                 continue
+
+            # Filter out .param definitions for variables we are about to inject
+            if stripped.startswith(".param"):
+                parts = re.split(r"[\s=]+", stripped)
+                if len(parts) > 1 and parts[1] in params_to_filter:
+                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
+                    continue
+
             filtered.append(line)
             
         # Force PDK path consistency

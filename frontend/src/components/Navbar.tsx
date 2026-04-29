@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import BackendStatus from './BackendStatus';
+import { useTheme } from '../hooks/useTheme';
 import './Navbar.css';
 
 export default function Navbar() {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
@@ -15,10 +18,10 @@ export default function Navbar() {
             <li>
               <Link to="/">Home</Link>
             </li>
-            <li>
-              <Link to="/dashboard">Dashboard</Link>
-            </li>
           </ul>
+          <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
       </div>
     </nav>

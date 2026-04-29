@@ -4,6 +4,7 @@ import './Dashboard.css';
 import FileUploader from '../components/FileUploader';
 import ParameterEditor from '../components/ParameterEditor';
 import ResultsViewer from '../components/ResultsViewer';
+import { parseSpiceValue } from '../utils/spice';
 
 interface Parameter {
   name: string;
@@ -19,18 +20,31 @@ const Dashboard: React.FC = () => {
   const [paramValues, setParamValues] = useState<Record<string, any>>({});
   const [optimizationParams, setOptimizationParams] = useState<Record<string, any>>({});
   const [mode, setMode] = useState<'simulate' | 'optimize'>('simulate');
-
-  // Reset behavior when switching modes
-  useEffect(() => {
-    if (mode === 'simulate') {
-      setOptimizationParams({});
-    }
-  }, [mode]);
   const [processId, setProcessId] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'workflow' | 'results'>('workflow');
+  const [optimizedResults, setOptimizedResults] = useState<Record<string, number> | null>(null);
+  const [shouldAutoRun, setShouldAutoRun] = useState(false);
+
+  // Auto-run trigger for applied optimization values
+  useEffect(() => {
+    if (shouldAutoRun && mode === 'simulate' && !loading) {
+      setShouldAutoRun(false);
+      handleRun();
+    }
+  }, [shouldAutoRun, mode, loading]);
+
+  // Reset behavior when switching modes
+  useEffect(() => {
+    if (mode === 'simulate') {
+      setOptimizationParams({});
+    } else {
+      // Clear previous optimization results when starting a new optimize setup
+      setOptimizedResults(null);
+    }
+  }, [mode]);
 
   // Poll for status
   useEffect(() => {
@@ -46,6 +60,10 @@ const Dashboard: React.FC = () => {
             setStatus(newStatusData);
             
             if (newStatusData.status === 'COMPLETED' || newStatusData.status === 'SUCCESS') {
+               // Capture optimized values if we were in optimize mode
+               if (mode === 'optimize' && newStatusData.results?.best_assignment) {
+                 setOptimizedResults(newStatusData.results.best_assignment);
+               }
                setActiveTab('results');
                clearInterval(interval);
             }
@@ -56,7 +74,26 @@ const Dashboard: React.FC = () => {
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [processId, status?.status]);
+  }, [processId, status?.status, mode]);
+
+  const applyOptimizedValues = async (fromResults?: Record<string, any>) => {
+    const resultsToApply = fromResults || optimizedResults;
+    if (!resultsToApply) return;
+    
+    setParamValues(prev => ({
+      ...prev,
+      ...resultsToApply
+    }));
+    
+    setMode('simulate');
+    setActiveTab('workflow');
+    setOptimizedResults(null); // Clear after applying to keep UI clean
+
+    // If triggered from explicit action (like Results button), we can auto-run
+    if (fromResults) {
+      setShouldAutoRun(true);
+    }
+  };
 
   const handleFileSelect = async (selectedFile: File) => {
     setFile(selectedFile);
@@ -108,10 +145,7 @@ const Dashboard: React.FC = () => {
     setParamValues(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleOptParamChange = (name: string, field: string, value: number) => {
-    // Basic validation for numeric input
-    if (isNaN(value)) return;
-    
+  const handleOptParamChange = (name: string, field: string, value: any) => {
     setOptimizationParams(prev => ({
       ...prev,
       [name]: {
@@ -125,23 +159,28 @@ const Dashboard: React.FC = () => {
     if (!file) return;
     setLoading(true);
     setError(null);
+    setProcessId(null); // Reset process ID to trigger UI clear before new run
     try {
       let res;
       if (mode === 'optimize') {
         const optPayload = {
           epochs: paramValues['epochs'] ? Number(paramValues['epochs']) : 100,
-          target_current: paramValues['target_current'] ? Number(paramValues['target_current']) : undefined,
-          target_gain: paramValues['target_gain'] ? Number(paramValues['target_gain']) : undefined,
+          target_current: paramValues['target_current'] !== undefined ? parseSpiceValue(paramValues['target_current']) : undefined,
+          target_gain: paramValues['target_gain'] !== undefined ? parseSpiceValue(paramValues['target_gain']) : undefined,
           params: Object.fromEntries(
             Object.entries(optimizationParams).map(([name, opt]) => [
               name,
-              { target: opt.target, initial: opt.initial }
+              { target: parseSpiceValue(opt.target), initial: parseSpiceValue(opt.initial) }
             ])
           )
         };
         res = await api.run(file, mode, optPayload);
       } else {
-        res = await api.run(file, mode, paramValues);
+        // Also parse regular simulation parameters just in case
+        const parsedParams = Object.fromEntries(
+          Object.entries(paramValues).map(([k, v]) => [k, typeof v === 'string' ? parseSpiceValue(v) : v])
+        );
+        res = await api.run(file, mode, parsedParams);
       }
 
       setLoading(false);
@@ -188,17 +227,23 @@ const Dashboard: React.FC = () => {
           <aside className="dashboard-hero-panel">
             <div className="hero-panel-topline">
               <span className={`status-dot ${processId ? 'status-dot-active' : ''}`} />
-              {processId ? `ID: ${processId.substring(0, 12)}...` : 'Ready'}
+              {processId ? (
+                <span style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                  ID : {processId}
+                </span>
+              ) : ''}
             </div>
             {status && (
               <div className="hero-panel-meta">
                 <div>
-                  <span>Status</span>
-                  <strong className={`status-text-${status.status.toLowerCase()}`}>{status.status}</strong>
+                  <span>STATUS</span>
+                  <strong className={`status-text-${status.status.toLowerCase()}`}>
+                    : {status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase()}
+                  </strong>
                 </div>
                 <div>
-                  <span>Mode</span>
-                  <strong>{mode.toUpperCase()}</strong>
+                  <span>MODE</span>
+                  <strong>: {mode === 'simulate' ? 'Simulate' : 'Optimize'}</strong>
                 </div>
               </div>
             )}
@@ -278,13 +323,13 @@ const Dashboard: React.FC = () => {
                     className={`mode-toggle-button ${mode === 'simulate' ? 'mode-toggle-button-active' : ''}`}
                     onClick={() => setMode('simulate')}
                   >
-                    Simulate
+                    SIMULATE
                   </button>
                   <button 
                     className={`mode-toggle-button ${mode === 'optimize' ? 'mode-toggle-button-active' : ''}`}
                     onClick={() => setMode('optimize')}
                   >
-                    Optimize
+                    OPTIMIZE
                   </button>
                 </div>
                 <button 
@@ -292,39 +337,88 @@ const Dashboard: React.FC = () => {
                   onClick={handleRun}
                   disabled={!file || loading || (status?.status === 'RUNNING')}
                 >
-                  {status?.status === 'RUNNING' ? 'Running...' : `Run ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
+                  {status?.status === 'RUNNING' ? 'RUNNING...' : `RUN ${mode.toUpperCase()}`}
                 </button>
+
+                {/* LIVE STATUS component placed directly below the run button */}
+                {processId && (
+                  <article className="dashboard-panel" style={{ marginTop: '1.5rem', borderLeft: '4px solid var(--accent)' }}>
+                    <div className="panel-heading" style={{ marginBottom: '1rem' }}>
+                      <div>
+                        <span className="panel-eyebrow">LIVE STATUS</span>
+                        <h2 style={{ fontSize: '1rem', wordBreak: 'break-all' }}>
+                          ID : {file ? file.name : 'Unknown'}_{processId.slice(0, 8)}
+                        </h2>
+                      </div>
+                      <span className={`results-status-pill results-status-pill-${status?.status.toLowerCase()}`}>
+                        {status?.status ? status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase() : ''}
+                      </span>
+                    </div>
+
+                    <div className="status-timeline" style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '0.85rem' }}>
+                      {status && (
+                        <div className="status-update" style={{ display: 'flex', gap: '12px', padding: '8px 0' }}>
+                          <span className="muted">{new Date(status.updated_at).toLocaleTimeString()}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <strong style={{ color: 'var(--accent)' }}>{status.status}</strong>
+                            {status.progress !== undefined && (
+                              <div style={{ width: '100%', background: 'var(--status-pill-bg)', height: '4px', borderRadius: '2px', marginTop: '4px' }}>
+                                <div style={{ width: `${status.progress}%`, background: 'var(--accent)', height: '100%', borderRadius: '2px' }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Filtering out "Worker update received" and showing meaningful logs */}
+                      <div className="status-logs">
+                        {status?.status === 'RUNNING' && <p style={{ margin: '4px 0' }}>{mode === 'optimize' ? 'HEURISTIC SEARCH IN PROGRESS...' : 'CALCULATING OPERATING POINT...'}</p>}
+                        {status?.status === 'COMPLETED' && <p style={{ margin: '4px 0', color: 'var(--success)' }}>EXECUTION SUCCESSFUL.</p>}
+                        {status?.status === 'FAILED' && <p style={{ margin: '4px 0', color: 'var(--error)' }}>{status.error || 'ANALYSIS FAILED.'}</p>}
+                      </div>
+                    </div>
+
+                    {(status?.status === 'COMPLETED' || status?.status === 'SUCCESS' || status?.status === 'FAILED') && (
+                      <button 
+                        className="dashboard-primary-action"
+                        style={{ marginTop: '1rem', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', padding: '8px' }}
+                        onClick={() => setActiveTab('results')}
+                      >
+                        VIEW RESULTS
+                      </button>
+                    )}
+                  </article>
+                )}
               </article>
             </div>
 
             <div className="dashboard-secondary-column">
-              {status && (
-                <article className="dashboard-panel dashboard-panel-sticky">
+              {optimizedResults && (
+                <article className="dashboard-panel" style={{ border: '1px solid var(--accent)', background: 'var(--status-pill-bg)' }}>
                   <div className="panel-heading">
                     <div>
-                      <span className="panel-eyebrow">4. Monitor</span>
-                      <h2>Live Status</h2>
-                    </div>
-                    <span className={`status-pill status-pill-${status.status.toLowerCase()}`}>
-                      {status.status}
-                    </span>
-                  </div>
-                  <div className="status-timeline">
-                    <div className="status-update">
-                      <span>{new Date(status.updated_at).toLocaleTimeString()}</span>
-                      <strong>{status.status}</strong>
-                      <p>Worker update received.</p>
+                      <span className="panel-eyebrow">OPTIMIZATION</span>
+                      <h2>Best Assignment</h2>
                     </div>
                   </div>
-                  {(status.status === 'COMPLETED' || status.status === 'SUCCESS' || status.status === 'FAILED') && (
-                    <button 
-                      className="dashboard-primary-action"
-                      style={{ marginTop: '1rem' }}
-                      onClick={() => setActiveTab('results')}
-                    >
-                      View Results
-                    </button>
-                  )}
+                  <div style={{ margin: '1rem 0' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {Object.entries(optimizedResults).map(([key, value]) => (
+                        <li key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)' }}>{key.replace(/_/g, ' ')}</span>
+                          <strong style={{ color: 'var(--accent)' }}>
+                            {typeof value === 'number' ? value.toFixed(3) : value}
+                          </strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button 
+                    className="dashboard-primary-action"
+                    onClick={applyOptimizedValues}
+                  >
+                    Use Optimized Values
+                  </button>
                 </article>
               )}
             </div>
@@ -333,7 +427,10 @@ const Dashboard: React.FC = () => {
         ) : (
           <section className="dashboard-results-view">
              <article className="dashboard-panel">
-                <ResultsViewer status={status!} />
+                <ResultsViewer 
+                  status={status!} 
+                  onApplyOptimized={(p) => applyOptimizedValues(p)}
+                />
              </article>
           </section>
         )}

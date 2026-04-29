@@ -1,0 +1,58 @@
+:root {
+  /* Common variables */
+  --transition-speed: 0.3s;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+}
+
+[data-theme='light'] {
+  --background: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --text-main: #1E293B;
+  --text-muted: #64748B;
+  --accent: #2563EB;
+  --border: #E2E8F0;
+  --panel-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --input-bg: #FFFFFF;
+  --input-border: #CBD5E1;
+  --status-pill-bg: #E2E8F0;
+}
+
+[data-theme='dark'] {
+  --background: #0F172A;
+  --card-bg: #1E293B;
+  --text-main: #E2E8F0;
+  --text-muted: #94A3B8;
+  --accent: #3B82F6;
+  --border: #334155;
+  --panel-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --input-bg: #0F172A;
+  --input-border: #475467;
+  --status-pill-bg: #334155;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-main);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Global input overrides to ensure visibility */
+input, textarea, select {
+  background-color: var(--input-bg) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--input-border) !important;
+}
+
+/* Global utility for labels */
+.label-uppercased {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
