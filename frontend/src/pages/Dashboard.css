@@ -1,25 +1,27 @@
 .dashboard {
   background-color: var(--background);
   color: var(--text-main);
-  padding: var(--spacing-24) 0;
+  padding: var(--sp-16) 0;
   transition: all var(--transition-speed);
 }
 
 .dashboard-shell {
-  max-width: 1400px;
+  max-width: var(--max-width);
   margin: 0 auto;
-  padding: 0 var(--spacing-24);
+  padding: 0 var(--container-px);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-24);
+  gap: var(--sp-12);
 }
 
 .dashboard-panel {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: var(--spacing-24);
-  box-shadow: var(--panel-shadow);
+  background-color: transparent;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  padding: var(--sp-8) 0;
   transition: all var(--transition-speed);
 }
 
@@ -27,71 +29,78 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-24);
+  margin-bottom: var(--sp-8);
 }
 
 .panel-eyebrow {
   text-transform: uppercase;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.25em;
   color: var(--accent);
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-2);
   display: block;
 }
 
 .panel-badge {
-  background: var(--status-pill-bg);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: 2px;
+  font-size: 0.625rem;
+  font-weight: 400;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .dashboard-workspace {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: var(--spacing-24);
+  grid-template-columns: 1fr 320px;
+  gap: var(--sp-12);
   align-items: start;
 }
 
 .dashboard-input {
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
   color: var(--text-main);
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: var(--sp-2) 0;
+  border-radius: 0;
   width: 100%;
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
+  font-size: 0.875rem;
+  transition: border-color 0.1s;
 }
 
 .dashboard-input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: var(--border-active);
 }
 
 .dashboard-primary-action {
-  background: var(--accent);
-  color: #FFFFFF;
+  background: var(--text-main);
+  color: var(--background);
   border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: var(--sp-3) var(--sp-6);
+  border-radius: 2px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity 0.1s;
   width: 100%;
 }
 
 .dashboard-primary-action:hover {
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
 .dashboard-primary-action:disabled {
-  opacity: 0.5;
+  opacity: 0.2;
   cursor: not-allowed;
+  filter: grayscale(1);
 }
 
 .mode-toggle-group {

@@ -20,7 +20,9 @@ export default function Navbar() {
             </li>
           </ul>
           <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
-            {theme === 'light' ? '🌙' : '☀️'}
+            <span>
+              {theme === 'light' ? '○' : '●'}
+            </span>
           </button>
         </div>
       </div>

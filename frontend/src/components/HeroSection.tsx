@@ -7,13 +7,13 @@ export default function HeroSection() {
       <div className="hero-content">
         <h1 className="hero-title">xEDA</h1>
         <h2 className="hero-subtitle">Analog Design Automation</h2>
-        <p className="hero-description">Simulate, Optimize, and Automate with AI</p>
+        <p className="hero-description">Simulate, Optimize, and Automate with xEDA</p>
         <div className="hero-cta">
           <Link to="/dashboard" className="cta-button primary">
             Start Designing
           </Link>
-          <button className="cta-button secondary" onClick={() => alert('Upload circuit feature coming soon')}>
-            Upload Circuit
+          <button className="cta-button secondary" onClick={() => alert('Circuit generation feature coming soon')}>
+            Generate Circuit
           </button>
         </div>
       </div>

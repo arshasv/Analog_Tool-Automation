@@ -23,6 +23,40 @@ class PipelineExecutor:
     processes = {}
     
     @staticmethod
+    def _parse_spice_value(value: Any) -> float:
+        """Helper to parse spice values like 10u to 1e-5."""
+        if isinstance(value, (int, float)):
+            return float(value)
+        if not value or not isinstance(value, str):
+            return 0.0
+        
+        trimmed = value.strip().lower()
+        if not trimmed:
+            return 0.0
+            
+        multipliers = {
+            't': 1e12, 'g': 1e9, 'meg': 1e6, 'k': 1e3,
+            'm': 1e-3, 'u': 1e-6, 'n': 1e-9, 'p': 1e-12,
+            'f': 1e-15, 'a': 1e-18
+        }
+        
+        # Match number and unit
+        import re
+        match = re.match(r"^([-+]?\d*\.?\d+(?:[e][-+]?\d+)?)(meg|[tgkmunpfa])?.*$", trimmed)
+        if not match:
+            try:
+                return float(trimmed)
+            except ValueError:
+                return 0.0
+                
+        num_part = float(match.group(1))
+        unit_part = match.group(2)
+        
+        if unit_part and unit_part in multipliers:
+            return num_part * multipliers[unit_part]
+        return num_part
+
+    @staticmethod
     def parse_parameters_from_file(file_path: str) -> Dict[str, Any]:
         """Simple parameter extraction using AST."""
         params = {}
@@ -99,8 +133,8 @@ class PipelineExecutor:
 
                 # Optional optimization targets and weights can be provided
                 targets = {
-                    "current": float(merged_params.get("I_target", merged_params.get("target_current", merged_params.get("target_current", 0.0))) or 0.0),
-                    "gain": float(merged_params.get("gain_target", merged_params.get("target_gain", 0.0)) or 0.0),
+                    "current": float(PipelineExecutor._parse_spice_value(merged_params.get("I_target", merged_params.get("target_current", 0.0)))),
+                    "gain": float(PipelineExecutor._parse_spice_value(merged_params.get("gain_target", merged_params.get("target_gain", 0.0)))),
                 }
                 weights = {
                     "w1": float(merged_params.get("w_current", 1.0) or 1.0),

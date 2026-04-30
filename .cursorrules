@@ -1,0 +1,10 @@
+# Project Customization: Huashu Design
+
+Follow the Huashu Design philosophy and protocols defined in [.vscode/huashu-design.md](.vscode/huashu-design.md) for all high-fidelity design tasks.
+
+Key Constraints:
+- Fact-check specific products/brands first.
+- Always prefer real assets (logos, photos) over generic placeholders or SVG drawings.
+- Use the "Junior Designer" flow: show assumptions before implementation.
+- Avoid AI slop (generic gradients, emoji icons, etc.).
+- For mobile prototypes, use the provided iOS/Android frames and ask for the desired delivery style.

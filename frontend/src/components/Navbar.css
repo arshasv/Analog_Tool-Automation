@@ -1,7 +1,6 @@
 .navbar {
-  background-color: var(--card-bg);
-  padding: 0.75rem 0;
-  box-shadow: var(--panel-shadow);
+  background-color: var(--background);
+  padding: var(--sp-6) 0;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -10,33 +9,34 @@
 }
 
 .navbar-container {
-  max-width: 1400px;
+  max-width: var(--max-width);
   margin: 0 auto;
-  padding: 0 var(--spacing-24);
+  padding: 0 var(--container-px);
   display: flex;
-  justify-content: flex-start; /* Forces alignment to start */
+  justify-content: flex-start;
   align-items: center;
 }
 
 .navbar-logo {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent);
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-main);
   text-decoration: none;
   letter-spacing: 0.1em;
-  margin-right: auto; /* 🔥 Forces everything else to the right */
+  margin-right: auto;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: var(--spacing-24);
+  gap: var(--sp-8);
 }
 
 .navbar-menu {
   display: flex;
   list-style: none;
-  gap: var(--spacing-24);
+  gap: var(--sp-8);
   margin: 0;
   padding: 0;
 }
@@ -44,33 +44,39 @@
 .navbar-menu a {
   color: var(--text-muted);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 400;
+  font-size: 0.8125rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: color 0.2s;
+  letter-spacing: 0.15em;
+  transition: color 0.1s;
 }
 
 .navbar-menu a:hover {
-  color: var(--accent);
+  color: var(--text-main);
 }
 
 .theme-toggle {
-  background: var(--background);
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  border-radius: 2px; /* Precision corner */
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.2rem;
-  transition: all 0.2s;
+  transition: all 0.1s;
   padding: 0;
+  color: var(--text-main);
 }
 
 .theme-toggle:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
+  border-color: var(--border-active);
+  background: var(--status-pill-bg);
+}
+
+.theme-toggle span {
+  font-size: 0.5rem;
+  line-height: 1;
+  display: block;
 }
