@@ -17,6 +17,24 @@ const UNIT_MULTIPLIERS: Record<string, number> = {
 };
 
 /**
+ * Checks if a string is a valid SPICE-style value.
+ * @param value The string to validate
+ */
+export function isValidSpiceValue(value: string | number): boolean {
+  if (typeof value === 'number') return !isNaN(value);
+  if (!value) return false;
+
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  // Match number followed by optional unit (meg, t, g, k, m, u, n, p, f, a)
+  // Must end after the optional unit, no extra characters allowed
+  const match = trimmed.match(/^([-+]?\d*\.?\d+(?:[e][-+]?\d+)?)(meg|[tgkmunpfa])?$/);
+  
+  return !!match;
+}
+
+/**
  * Parses a SPICE-style value string into a number.
  * If input is already a number, returns it.
  */

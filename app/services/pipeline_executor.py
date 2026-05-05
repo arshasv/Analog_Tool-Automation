@@ -274,6 +274,8 @@ class PipelineExecutor:
         except Exception as e:
             logger.error(f"Pipeline failed for {process_id}: {e}", exc_info=True)
             PipelineExecutor.processes[process_id]["status"] = ProcessStatus.FAILED
+            # Clean summary for UI
+            PipelineExecutor.processes[process_id]["error"] = f"Execution failed: {str(e)}"
             PipelineExecutor.processes[process_id]["errors"].append(str(e))
 
     @staticmethod

@@ -21,7 +21,7 @@ export default function Navbar() {
           </ul>
           <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
             <span>
-              {theme === 'light' ? '○' : '●'}
+              {theme === 'light' ? '☾' : '☼'}
             </span>
           </button>
         </div>

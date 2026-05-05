@@ -3,10 +3,11 @@ import './FileUploader.css';
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
+  onRemoveFile: () => void;
   selectedFile: File | null;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect, selectedFile }) => {
+const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect, onRemoveFile, selectedFile }) => {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -26,6 +27,15 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect, selectedFile 
     }
   };
 
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+    }
+    onRemoveFile();
+  };
+
   return (
     <div className="file-uploader-container">
       <div 
@@ -41,24 +51,17 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect, selectedFile 
           onChange={handleChange}
           accept=".py,.spice"
         />
-        <div className="file-dropzone-icon">+</div>
-        <div>
-          <strong>{selectedFile ? selectedFile.name : 'Drag a circuit file here'}</strong>
-          <p>{selectedFile ? 'Click to change file' : 'or browse a local template for simulation and optimization'}</p>
+        <div className="file-dropzone-icon">{selectedFile ? '✓' : '+'}</div>
+        <div className="file-dropzone-content">
+          <strong>{selectedFile ? `Uploaded : ${selectedFile.name}` : 'Drop circuit template'}</strong>
+          <p>{selectedFile ? 'File verified and ready' : 'Supported formats: Python (.py) or SPICE (.spice)'}</p>
         </div>
       </div>
       
       {selectedFile && (
-        <div className="selected-file-card">
-          <div>
-            <span>Selected file</span>
-            <strong>{selectedFile.name}</strong>
-          </div>
-          <div>
-            <span>Detected type</span>
-            <strong>{selectedFile.name.endsWith('.py') ? 'Python circuit template' : 'SPICE Netlist'}</strong>
-          </div>
-        </div>
+        <button className="remove-file-button" onClick={handleRemove}>
+          Remove and replace file
+        </button>
       )}
     </div>
   );

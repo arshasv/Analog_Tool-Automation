@@ -19,6 +19,7 @@
   --muted: #bdd3e2;
   --success: #65d89b;
   --warning: #f4b23f;
+  --error: #ff5252;
   --plot-bg: rgba(8, 20, 29, 0.5);
 
   background-color: var(--bg);
@@ -35,6 +36,7 @@
   --muted: #5c748a;
   --accent: #0ea5e9;
   --accent-strong: #0284c7;
+  --error: #ef4444;
   --plot-bg: #f8fbfe;
 }
 

@@ -25,32 +25,32 @@
   --background: oklch(0.99 0.005 240);
   --card-bg: oklch(0.97 0.01 240);
   --text-main: oklch(0.2 0.02 240);
-  --text-muted: oklch(0.5 0.03 240);
-  --accent: oklch(0.5 0.15 250);
+  --text-muted: oklch(0.45 0.02 240); /* Slightly darker for better readability */
+  --accent: oklch(0.55 0.18 255); /* More vibrant blue for buttons */
   --border: oklch(0.9 0.01 240);
   --border-active: oklch(0.2 0.02 240);
   --panel-shadow: none; /* No consumer shadows */
   --input-bg: transparent;
   --input-border: oklch(0.9 0.01 240);
   --status-pill-bg: oklch(0.95 0.02 240);
-  --font-serif: 'Newsreader', serif;
+  --font-serif: 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
 [data-theme='dark'] {
   --background: oklch(0.12 0.01 240); /* Deeper blacks for high contrast */
-  --card-bg: oklch(0.15 0.01 240);
+  --card-bg: oklch(0.16 0.01 240);
   --text-main: oklch(0.98 0.005 240);
-  --text-muted: oklch(0.65 0.02 240);
+  --text-muted: oklch(0.75 0.01 240); /* Increased contrast for secondary text */
   --accent: oklch(0.7 0.12 250);
-  --border: oklch(0.25 0.01 240);
+  --border: oklch(0.32 0.01 240); /* Slightly brighter borders for better separation */
   --border-active: oklch(0.98 0.005 240);
   --panel-shadow: none;
   --input-bg: transparent;
-  --input-border: oklch(0.25 0.01 240);
-  --status-pill-bg: oklch(0.18 0.01 240);
-  --font-serif: 'Newsreader', serif;
+  --input-border: oklch(0.32 0.01 240);
+  --status-pill-bg: oklch(0.2 0.01 240);
+  --font-serif: 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -65,10 +65,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, .brand {
-  font-family: var(--font-serif);
-  font-weight: 500;
+h1, h2, h3, h4, h5, h6, .brand, .navbar-logo {
+  font-family: var(--font-sans) !important;
+  font-weight: 600;
   text-wrap: pretty;
+}
+
+button, input, textarea, select, .navbar-menu a, div, span, p, section {
+  font-family: var(--font-sans) !important;
+}
+
+.mono {
+  font-family: var(--font-mono) !important;
 }
 
 /* Global input overrides to ensure visibility */

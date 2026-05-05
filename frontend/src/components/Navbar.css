@@ -13,7 +13,7 @@
   margin: 0 auto;
   padding: 0 var(--container-px);
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
 }
 
@@ -24,7 +24,10 @@
   color: var(--text-main);
   text-decoration: none;
   letter-spacing: 0.1em;
-  margin-right: auto;
+}
+
+.navbar-logo:hover {
+  color: var(--text-main); /* Prevent color change on hover */
 }
 
 .navbar-right {
@@ -56,27 +59,32 @@
 }
 
 .theme-toggle {
-  background: transparent;
+  background-color: var(--status-pill-bg);
   border: 1px solid var(--border);
-  border-radius: 2px; /* Precision corner */
-  width: 28px;
-  height: 28px;
+  border-radius: 4px; /* More standard precision corner */
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.1s;
+  transition: all var(--transition-speed);
   padding: 0;
   color: var(--text-main);
 }
 
 .theme-toggle:hover {
-  border-color: var(--border-active);
-  background: var(--status-pill-bg);
+  border-color: var(--accent);
+  background-color: var(--border);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:active {
+  transform: translateY(0);
 }
 
 .theme-toggle span {
-  font-size: 0.5rem;
+  font-size: 1.1rem;
   line-height: 1;
   display: block;
 }

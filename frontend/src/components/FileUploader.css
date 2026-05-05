@@ -5,66 +5,75 @@
 }
 
 .file-dropzone {
-  border: 2px dashed #2d3e50;
-  border-radius: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
   padding: 2.5rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-speed);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  background: rgba(13, 23, 33, 0.4);
+  background: var(--status-pill-bg);
 }
 
 .file-dropzone:hover {
-  border-color: #00e5ff;
-  background: rgba(0, 229, 255, 0.05);
+  border-color: var(--accent);
+  background: var(--card-bg);
 }
 
 .file-dropzone.has-file {
-  border-color: #00e5ff;
-  background: rgba(0, 229, 255, 0.02);
+  border-color: var(--accent);
+  background: var(--card-bg);
 }
 
 .file-dropzone-icon {
   font-size: 2rem;
-  color: #00e5ff;
+  color: var(--accent);
   font-weight: 300;
+  margin-bottom: var(--sp-2);
+}
+
+.file-dropzone-content {
+  text-align: center;
 }
 
 .file-dropzone strong {
   display: block;
-  font-size: 1.1rem;
-  margin-bottom: 0.25rem;
-  color: #e0e6ed;
+  font-size: 1rem;
+  margin-bottom: var(--sp-1);
+  color: var(--text-main);
 }
 
 .file-dropzone p {
-  color: #8899a6;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
   margin: 0;
 }
 
-.selected-file-card {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-  padding: 1.25rem;
-  background: #1a2a3a;
-  border-radius: 8px;
-  border-left: 4px solid #00e5ff;
-}
-
-.selected-file-card span {
-  display: block;
+.remove-file-button {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 4px;
   font-size: 0.75rem;
   text-transform: uppercase;
-  color: #8899a6;
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  margin-top: var(--sp-2);
 }
 
-.selected-file-card strong {
-  color: #00e5ff;
+.remove-file-button:hover {
+  border-color: #ff5555;
+  color: #ff5555;
+  background: rgba(255, 85, 85, 0.05);
+}
+
+/* Hide original card since we use consolidated view */
+.selected-file-card {
+  display: none;
 }

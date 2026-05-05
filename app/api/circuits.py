@@ -141,6 +141,22 @@ async def run_circuit(
             continue
         parameters[key] = _coerce_form_value(value)
 
+    if mode == "optimize":
+        epochs = parameters.get("epochs")
+        if epochs is not None:
+            try:
+                epochs_val = int(epochs)
+                if epochs_val < 1 or epochs_val > 200:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Epoch value must be between 1 and 200"
+                    )
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Epoch value must be a valid integer"
+                )
+
     process_id = str(uuid4())
     saved_file = await _save_upload(file, process_id)
     now = datetime.utcnow()

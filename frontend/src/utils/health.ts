@@ -5,8 +5,8 @@ export const getHealthStatusText = (value: string | undefined, isError: boolean)
 
   const normalized = value?.trim().toLowerCase();
   if (normalized === 'ok' || normalized === 'healthy') {
-    return 'Connected ✅';
+    return 'Online';
   }
 
-  return `Connected ✅ (${value ?? 'unknown status'})`;
+  return `Online (${value ?? 'unknown status'})`;
 };

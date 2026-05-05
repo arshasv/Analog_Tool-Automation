@@ -4,7 +4,8 @@ import './Dashboard.css';
 import FileUploader from '../components/FileUploader';
 import ParameterEditor from '../components/ParameterEditor';
 import ResultsViewer from '../components/ResultsViewer';
-import { parseSpiceValue } from '../utils/spice';
+import ErrorAlert from '../components/ErrorAlert';
+import { parseSpiceValue, isValidSpiceValue } from '../utils/spice';
 
 interface Parameter {
   name: string;
@@ -24,6 +25,8 @@ const Dashboard: React.FC = () => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [epochs, setEpochs] = useState<number>(30);
   const [activeTab, setActiveTab] = useState<'workflow' | 'results'>('workflow');
   const [optimizedResults, setOptimizedResults] = useState<Record<string, number> | null>(null);
   const [shouldAutoRun, setShouldAutoRun] = useState(false);
@@ -141,8 +144,25 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleRemoveFile = () => {
+    setFile(null);
+    setParams([]);
+    setParamValues({});
+    setOptimizationParams({});
+    setError(null);
+    setProcessId(null);
+    setStatus(null);
+  };
+
   const handleParamChange = (name: string, value: any) => {
     setParamValues(prev => ({ ...prev, [name]: value }));
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const handleOptParamChange = (name: string, field: string, value: any) => {
@@ -153,10 +173,63 @@ const Dashboard: React.FC = () => {
         [field]: value
       }
     }));
+    const errorKey = field === 'target' ? `${name}_target` : name;
+    if (fieldErrors[errorKey]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[errorKey];
+        return next;
+      });
+    }
   };
 
   const handleRun = async () => {
     if (!file) return;
+
+    // Clear previous errors
+    setFieldErrors({});
+
+    // Parameter Validation
+    const newFieldErrors: Record<string, string> = {};
+    let hasErrors = false;
+
+    for (const [name, val] of Object.entries(paramValues)) {
+      // Find the parameter definition to check its type
+      const paramDef = params.find(p => p.name === name);
+      const isStringParam = paramDef?.type.toLowerCase() === 'string';
+
+      if (!isStringParam && typeof val === 'string' && val.trim() !== '' && !isValidSpiceValue(val)) {
+        newFieldErrors[name] = "Invalid format. Use numeric values (e.g., 10u, 1.2).";
+        hasErrors = true;
+      }
+    }
+
+    if (mode === 'optimize') {
+      // Validate optimization targets
+      for (const [name, opt] of Object.entries(optimizationParams)) {
+        if (opt.target && !isValidSpiceValue(opt.target)) {
+          newFieldErrors[`${name}_target`] = "Invalid target format.";
+          hasErrors = true;
+        }
+        if (opt.initial && !isValidSpiceValue(opt.initial)) {
+          newFieldErrors[name] = "Invalid initial format.";
+          hasErrors = true;
+        }
+      }
+
+      // Epoch Validation
+      if (epochs < 1 || epochs > 200) {
+        setError("Epoch value must be between 1 and 200.");
+        return;
+      }
+    }
+
+    if (hasErrors) {
+      setFieldErrors(newFieldErrors);
+      setError("Please fix the validation errors below.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setProcessId(null); // Reset process ID to trigger UI clear before new run
@@ -164,7 +237,7 @@ const Dashboard: React.FC = () => {
       let res;
       if (mode === 'optimize') {
         const optPayload = {
-          epochs: paramValues['epochs'] ? Number(paramValues['epochs']) : 100,
+          epochs: epochs,
           target_current: paramValues['target_current'] !== undefined ? parseSpiceValue(paramValues['target_current']) : undefined,
           target_gain: paramValues['target_gain'] !== undefined ? parseSpiceValue(paramValues['target_gain']) : undefined,
           params: Object.fromEntries(
@@ -198,59 +271,40 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
-      <div className="nav-toggle">
-         <button 
-           className={activeTab === 'workflow' ? 'active' : ''} 
-           onClick={() => setActiveTab('workflow')}
-         >
-           Workflow
-         </button>
-         <button 
-           className={activeTab === 'results' ? 'active' : ''} 
-           onClick={() => setActiveTab('results')}
-         >
-           Results
-         </button>
-      </div>
-
       <div className="dashboard-shell">
-        <section className="dashboard-hero">
-          <div className="dashboard-hero-copy">
-            <span className="dashboard-kicker">AI-Driven Analog Design Platform</span>
-            <h1>{activeTab === 'results' ? 'Design Results' : 'Circuit workflow'}</h1>
-            <p>
-              {activeTab === 'results' 
-                ? 'Review performance metrics and download design assets.' 
-                : 'Upload, introspect, and execute simulations or optimizations.'}
-            </p>
-          </div>
-          <aside className="dashboard-hero-panel">
-            <div className="hero-panel-topline">
-              <span className={`status-dot ${processId ? 'status-dot-active' : ''}`} />
-              {processId ? (
-                <span style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                  ID : {processId}
-                </span>
-              ) : ''}
-            </div>
-            {status && (
-              <div className="hero-panel-meta">
-                <div>
-                  <span>STATUS</span>
-                  <strong className={`status-text-${status.status.toLowerCase()}`}>
-                    : {status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase()}
-                  </strong>
-                </div>
-                <div>
-                  <span>MODE</span>
-                  <strong>: {mode === 'simulate' ? 'Simulate' : 'Optimize'}</strong>
-                </div>
-              </div>
-            )}
-          </aside>
-        </section>
+        <div className="nav-toggle">
+           <button 
+             className={activeTab === 'workflow' ? 'active' : ''} 
+             onClick={() => setActiveTab('workflow')}
+           >
+             Workflow
+           </button>
+           <button 
+             className={activeTab === 'results' ? 'active' : ''} 
+             onClick={() => setActiveTab('results')}
+           >
+             Results
+           </button>
+        </div>
 
-        {error && <div className="dashboard-error-banner">{error}</div>}
+        <aside className="dashboard-kpi-bar">
+          <div className="kpi-item">
+            <label className="label-uppercased">Workflow ID</label>
+            <span className="mono">{processId ? processId : '---'}</span>
+          </div>
+          <div className="kpi-item">
+            <label className="label-uppercased">Status</label>
+            <span className={`status-text-${status?.status.toLowerCase() || 'none'} kpi-value`}>
+              {status ? (status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase()) : 'Inactive'}
+            </span>
+          </div>
+          <div className="kpi-item">
+            <label className="label-uppercased">Mode</label>
+            <span className="kpi-value">{mode === 'simulate' ? 'Simulate' : 'Optimize'}</span>
+          </div>
+        </aside>
+
+        {error && !error.includes("Epoch value must be between 1 and 200.") && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
         {activeTab === 'workflow' ? (
           <section className="dashboard-workspace">
@@ -258,12 +312,10 @@ const Dashboard: React.FC = () => {
               <article className="dashboard-panel">
                 <div className="panel-heading">
                   <div>
-                    <span className="panel-eyebrow">1. Intake</span>
                     <h2>Circuit file</h2>
                   </div>
-                  <span className="panel-badge">.py / .spice</span>
                 </div>
-                <FileUploader onFileSelect={handleFileSelect} selectedFile={file} />
+                <FileUploader onFileSelect={handleFileSelect} onRemoveFile={handleRemoveFile} selectedFile={file} />
               </article>
 
               {loading && <div className="loading-overlay">Processing...</div>}
@@ -272,7 +324,6 @@ const Dashboard: React.FC = () => {
                 <article className="dashboard-panel">
                   <div className="panel-heading">
                     <div>
-                      <span className="panel-eyebrow">2. Parameters</span>
                       <h2>Specifications</h2>
                     </div>
                   </div>
@@ -283,6 +334,7 @@ const Dashboard: React.FC = () => {
                     optimizationParams={optimizationParams}
                     onOptParamChange={handleOptParamChange}
                     mode={mode}
+                    errors={fieldErrors}
                   />
                 </article>
               )}
@@ -291,21 +343,30 @@ const Dashboard: React.FC = () => {
                 <article className="dashboard-panel">
                   <div className="panel-heading">
                     <div>
-                      <span className="panel-eyebrow">Optimization</span>
-                      <h2>Search History Configuration</h2>
+                      <h2>Search Strategy</h2>
                     </div>
                   </div>
                   <div className="param-input-container">
                     <label>Epochs (Iterations)</label>
                     <input
                       type="number"
-                      className="dashboard-input"
-                      value={paramValues['epochs'] ?? 100}
-                      onChange={(e) => handleParamChange('epochs', parseInt(e.target.value))}
+                      className={`dashboard-input ${error && error.includes('Epoch value must be between 1 and 200.') ? 'input-error' : ''}`}
+                      value={epochs}
+                      min={1}
+                      max={200}
+                      onChange={(e) => {
+                        setEpochs(parseInt(e.target.value) || 0);
+                        if (error && error.includes('Epoch value must be between 1 and 200.')) setError(null);
+                      }}
                       style={{ width: '100px' }}
                     />
+                    {error && error.includes('Epoch value must be between 1 and 200.') && (
+                      <div className="input-error-message" style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'bold' }}>
+                        ⚠️ {error}
+                      </div>
+                    )}
                     <small className="muted" style={{ display: 'block', marginTop: '4px' }}>
-                      Higher values increase search accuracy but take longer.
+                      Valid range: 1 - 200. Higher values increase accuracy but take longer.
                     </small>
                   </div>
                 </article>
@@ -314,7 +375,6 @@ const Dashboard: React.FC = () => {
               <article className="dashboard-panel">
                 <div className="panel-heading">
                   <div>
-                    <span className="panel-eyebrow">3. Execution</span>
                     <h2>Mode selection</h2>
                   </div>
                 </div>
@@ -335,9 +395,11 @@ const Dashboard: React.FC = () => {
                 <button 
                   className="dashboard-primary-action" 
                   onClick={handleRun}
-                  disabled={!file || loading || (status?.status === 'RUNNING')}
+                  disabled={!file || loading || status?.status === 'RUNNING' || status?.status === 'PENDING'}
                 >
-                  {status?.status === 'RUNNING' ? 'RUNNING...' : `RUN ${mode.toUpperCase()}`}
+                   {loading || status?.status === 'RUNNING' || status?.status === 'PENDING' 
+                    ? (loading ? 'STARTING...' : 'RUNNING...') 
+                    : `RUN ${mode.toUpperCase()}`}
                 </button>
 
                 {/* LIVE STATUS component placed directly below the run button */}

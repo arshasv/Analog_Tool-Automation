@@ -17,6 +17,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
     document.body.className = theme;
     localStorage.setItem('theme', theme);
   }, [theme]);

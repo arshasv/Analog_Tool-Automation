@@ -11,8 +11,8 @@ const BackendStatus: React.FC = () => {
 
   return (
     <div className={`backend-status-badge ${isError ? 'error' : 'success'}`} onClick={checkHealth}>
+      <span className="status-text">{loading ? 'Checking...' : `${statusText} ${!isError ? '' : ''}`}</span>
       <span className="status-dot" />
-      <span className="status-text">{loading ? 'Checking...' : statusText}</span>
     </div>
   );
 };
