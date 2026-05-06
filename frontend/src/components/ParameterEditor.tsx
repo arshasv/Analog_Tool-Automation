@@ -52,14 +52,11 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
       <div className="parameter-grid">
         {/* Step A: Global Design Targets (Gain, Current) */}
         {mode === 'optimize' && (
-          <>
-            <div className="dashboard-panel parameter-card full-width">
-              <div className="panel-heading" style={{ marginBottom: '1.5rem' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.25rem' }}>Optimization Targets</h2>
-                </div>
-              </div>
-              <div className="targets-row">
+          <div className="dashboard-panel parameter-card full-width">
+            <div className="panel-heading" style={{ marginBottom: '16px', padding: 0, border: 'none' }}>
+              <h2 style={{ fontSize: '1.1rem', color: 'var(--text-main)', letterSpacing: '0.02em' }}>Optimization Targets</h2>
+            </div>
+            <div className="targets-row">
                 <div className="param-input-container">
                   <label>Target Current (I)</label>
                   <input
@@ -92,16 +89,14 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                 </div>
               </div>
             </div>
-          </>
         )}
 
         {/* Step B: Circuit Parameters Grid */}
         {parameters.filter(p => p.name !== 'process_id').map((param) => (
           <div key={param.name} className="dashboard-panel parameter-card">
             <div className="param-info">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <strong className="param-name">{param.name}</strong>
-                {isWLParam(param.name) && <span className="badge-free">W/L</span>}
               </div>
               <span className="param-type">{param.type}</span>
             </div>
@@ -131,7 +126,7 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                       type="text"
                       className={`dashboard-input ${errors[`${param.name}_target`] ? 'input-error' : ''}`}
                       value={optimizationParams[param.name]?.target ?? ''}
-                      onChange={(e) => onOptParamChange(param.name, 'target', e.target.value)}
+                      onChange={(e) => onOptParamChange(param.name, 'target', Number(e.target.value))}
                       placeholder="Goal"
                     />
                     {errors[`${param.name}_target`] && (

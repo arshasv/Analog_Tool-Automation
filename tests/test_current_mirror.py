@@ -19,14 +19,15 @@ def test_current_mirror_generate_netlist():
     netlist = generate_netlist(width=2.0, length=0.5)
     assert isinstance(netlist, str)
     assert len(netlist) > 0
-    assert "Sky130 Current Mirror" in netlist
-    assert "sky130.lib.spice" in netlist
+    assert "Simple Current Mirror Test Circuit" in netlist
+    # Removed PDK check because AnalysisOrchestrator handles PDK injection
+    # assert "sky130.lib.spice" in netlist
     assert "sky130_fd_pr__nfet_01v8" in netlist
     assert "XM1" in netlist and "XM2" in netlist
     assert "vout" in netlist
     assert "d_ref" in netlist
-    assert ".param W =" in netlist or "W =" in netlist
-    assert ".param L =" in netlist or "L =" in netlist
+    assert ".param w =" in netlist.lower() or "w =" in netlist.lower()
+    assert ".param l =" in netlist.lower() or "l =" in netlist.lower()
 
 
 def test_current_mirror_generate_netlist_custom_params():

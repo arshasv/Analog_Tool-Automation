@@ -1,4 +1,4 @@
-* Parametric AC Analysis for 711f373f-a8ab-41c2-931f-78776c145f17_current_mirror
+* Parametric AC Analysis for current_mirror
 .options compat=ps
 .options reltol=1e-3 gmin=1e-12 scale=1u
 .lib "/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
@@ -10,7 +10,9 @@
 
 * Computed Parameters
 .param length = {clampL(0.5)}
-.param width = {clampW(2)}
+.param width = {clampW(2.0)}
+.param w = {clampW(2.0)}
+.param l = {clampL(0.5)}
 
 * Circuit Implementation
 * Simple Current Mirror Test Circuit
@@ -21,8 +23,6 @@
 * @DC_EXPR: i(vmeas)
 
 * Parameters
-.param w = 2u
-.param l = 0.5u
 
 * Supply
 Vdd vdd 0 1.8
@@ -48,6 +48,6 @@ Cout vout 0 1p
 set ngbehavior=hs
 run
 set filetype=ascii
-wrdata 711f373f-a8ab-41c2-931f-78776c145f17_ac.csv i(vmeas)
+wrdata test_current_mirror_001_ac.csv i(vmeas)
 .endc
 .end

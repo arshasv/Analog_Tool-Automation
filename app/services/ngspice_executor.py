@@ -44,6 +44,7 @@ class NgSpiceExecutor:
             # Run ngspice in batch mode; cwd=output_dir so wrdata creates CSV in same dir
             cmd = [
                 NgSpiceExecutor.NGSPICE_CMD,
+                "-n",  # No initialization
                 "-b",  # batch mode
                 netlist_name,
                 "-o",  # output file

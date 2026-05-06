@@ -157,10 +157,13 @@ class AnalysisOrchestrator:
             
             # Filter out .param definitions for variables we are about to inject
             if stripped.startswith(".param"):
-                parts = re.split(r"[\s=]+", stripped)
-                if len(parts) > 1 and parts[1] in params_to_filter:
-                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
-                    continue
+                # Use regex to find parameter names like '.param w=2.0u' or '.param width=..."
+                m_param = re.search(r"^\.param\s+([a-zA-Z0-9_]+)", stripped)
+                if m_param:
+                    param_name = m_param.group(1).lower()
+                    if param_name in params_to_filter:
+                        logger.info(f"Filtering duplicate .param {param_name} from source netlist")
+                        continue
 
             filtered.append(line)
         
@@ -168,7 +171,7 @@ class AnalysisOrchestrator:
         meta = AnalysisOrchestrator._extract_metadata(circuit_netlist)
 
         # Force PDK path consistency
-        fixed_lines = [AnalysisOrchestrator._fix_pdk_paths(l) for l in filtered]
+        fixed_lines = filtered
         # Only inject Sky130 subcircuit includes if using Sky130 subcircuit models
         has_sky130_subckt = any("sky130_fd_pr__" in l.lower() for l in filtered)
         if has_sky130_subckt:
@@ -191,13 +194,21 @@ class AnalysisOrchestrator:
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
-            for k, v in parameters.items():
+            # Ensure w and l are defined if width and length are provided, to satisfy existing templates
+            # We use a copy of parameters to avoid modifying the input dict in place
+            effective_params = dict(parameters)
+            if "width" in effective_params and "w" not in effective_params:
+                effective_params["w"] = effective_params["width"]
+            if "length" in effective_params and "l" not in effective_params:
+                effective_params["l"] = effective_params["length"]
+
+            for k, v in effective_params.items():
                 if not isinstance(v, (int, float)):
                     continue
                 # If it's W or L, wrap in clamp
-                if k.lower().startswith("w_") or k.lower() == "width":
+                if k.lower().startswith("w_") or k.lower() == "width" or k.lower() == "w":
                     f.write(f".param {k} = {{clampW({v})}}\n")
-                elif k.lower().startswith("l_") or k.lower() == "length":
+                elif k.lower().startswith("l_") or k.lower() == "length" or k.lower() == "l":
                     f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")
@@ -212,8 +223,6 @@ class AnalysisOrchestrator:
                 f.write(f"{dc_sweep_line}\n")
                 f.write(".control\n")
                 f.write("set ngbehavior=hs\n")
-                # Debug: verify optimized parameters
-                f.write("print width length w l\n")
                 f.write("set filetype=ascii\n")
                 sweep_var = ""
                 m_sweep = re.search(r"\.dc\s+([^\s]+)", dc_sweep_line, re.IGNORECASE)
@@ -264,6 +273,9 @@ class AnalysisOrchestrator:
 
         return str(netlist_path)
 
+    @staticmethod
+    @staticmethod
+    @staticmethod
     @staticmethod
     def _fix_pdk_paths(line: str) -> str:
         """Force replace any wrong PDK paths with the correct container standard path."""
@@ -464,10 +476,12 @@ class AnalysisOrchestrator:
 
             # Filter out .param definitions for variables we are about to inject
             if stripped.startswith(".param"):
-                parts = re.split(r"[\s=]+", stripped)
-                if len(parts) > 1 and parts[1] in params_to_filter:
-                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
-                    continue
+                m_param = re.search(r"^\.param\s+([a-zA-Z0-9_]+)", stripped)
+                if m_param:
+                    param_name = m_param.group(1).lower()
+                    if param_name in params_to_filter:
+                        logger.info(f"Filtering duplicate .param {param_name} from source netlist")
+                        continue
 
             filtered.append(line)
             
@@ -526,12 +540,19 @@ class AnalysisOrchestrator:
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
-            for k, v in parameters.items():
+            # Ensure w and l are defined if width and length are provided
+            effective_params = dict(parameters)
+            if "width" in effective_params and "w" not in effective_params:
+                effective_params["w"] = effective_params["width"]
+            if "length" in effective_params and "l" not in effective_params:
+                effective_params["l"] = effective_params["length"]
+
+            for k, v in effective_params.items():
                 if not isinstance(v, (int, float)):
                     continue
-                if k.lower().startswith("w_") or k.lower() == "width":
+                if k.lower().startswith("w_") or k.lower() == "width" or k.lower() == "w":
                     f.write(f".param {k} = {{clampW({v})}}\n")
-                elif k.lower().startswith("l_") or k.lower() == "length":
+                elif k.lower().startswith("l_") or k.lower() == "length" or k.lower() == "l":
                     f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")
@@ -545,8 +566,6 @@ class AnalysisOrchestrator:
             f.write(f".ac dec {points_per_dec} {int(start_freq)} {int(stop_freq)}\n")
             f.write(".control\n")
             f.write("set ngbehavior=hs\n")
-            # Debug: verify optimized parameters
-            f.write("print width length w l\n")
             f.write("run\n")
             f.write("set filetype=ascii\n")
             f.write(f"wrdata {ac_csv_name} {ac_raw_expr}\n")
@@ -597,10 +616,12 @@ class AnalysisOrchestrator:
 
             # Filter out .param definitions for variables we are about to inject
             if stripped.startswith(".param"):
-                parts = re.split(r"[\s=]+", stripped)
-                if len(parts) > 1 and parts[1] in params_to_filter:
-                    logger.info(f"Filtering duplicate .param {parts[1]} from source netlist")
-                    continue
+                m_param = re.search(r"^\.param\s+([a-zA-Z0-9_]+)", stripped)
+                if m_param:
+                    param_name = m_param.group(1).lower()
+                    if param_name in params_to_filter:
+                        logger.info(f"Filtering duplicate .param {param_name} from source netlist")
+                        continue
 
             filtered.append(line)
             
@@ -631,12 +652,19 @@ class AnalysisOrchestrator:
             f.write(AnalysisOrchestrator._get_parametric_header())
             
             f.write("\n* Computed Parameters\n")
-            for k, v in parameters.items():
+            # Ensure w and l are defined if width and length are provided
+            effective_params = dict(parameters)
+            if "width" in effective_params and "w" not in effective_params:
+                effective_params["w"] = effective_params["width"]
+            if "length" in effective_params and "l" not in effective_params:
+                effective_params["l"] = effective_params["length"]
+
+            for k, v in effective_params.items():
                 if not isinstance(v, (int, float)):
                     continue
-                if k.lower().startswith("w_") or k.lower() == "width":
+                if k.lower().startswith("w_") or k.lower() == "width" or k.lower() == "w":
                     f.write(f".param {k} = {{clampW({v})}}\n")
-                elif k.lower().startswith("l_") or k.lower() == "length":
+                elif k.lower().startswith("l_") or k.lower() == "length" or k.lower() == "l":
                     f.write(f".param {k} = {{clampL({v})}}\n")
                 else:
                     f.write(f".param {k} = {v}\n")

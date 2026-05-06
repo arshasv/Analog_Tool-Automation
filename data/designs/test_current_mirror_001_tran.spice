@@ -1,4 +1,4 @@
-* Parametric AC Analysis for 3fb73a60-95f7-4cea-aacc-e3a28eb294c6_current_mirror
+* Parametric Transient Analysis for current_mirror
 .options compat=ps
 .options reltol=1e-3 gmin=1e-12 scale=1u
 .lib "/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
@@ -10,7 +10,9 @@
 
 * Computed Parameters
 .param length = {clampL(0.5)}
-.param width = {clampW(2)}
+.param width = {clampW(2.0)}
+.param w = {clampW(2.0)}
+.param l = {clampL(0.5)}
 
 * Circuit Implementation
 * Simple Current Mirror Test Circuit
@@ -21,8 +23,6 @@
 * @DC_EXPR: i(vmeas)
 
 * Parameters
-.param w = 2u
-.param l = 0.5u
 
 * Supply
 Vdd vdd 0 1.8
@@ -42,12 +42,12 @@ Cout vout 0 1p
 * Analysis
 
 
-* AC Analysis
-.ac dec 50 100 100000000
+* Transient Analysis
+.tran 1n 30u
 .control
 set ngbehavior=hs
 run
 set filetype=ascii
-wrdata 3fb73a60-95f7-4cea-aacc-e3a28eb294c6_ac.csv i(vmeas)
+wrdata test_current_mirror_001_tran.csv i(vmeas)
 .endc
 .end

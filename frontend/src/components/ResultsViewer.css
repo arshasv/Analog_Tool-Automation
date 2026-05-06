@@ -110,28 +110,103 @@
 .artifact-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-8);
+  gap: 8px;
 }
 
 .artifact {
   display: flex;
   justify-content: space-between;
-  padding: 10px;
+  padding: 14px 20px;
   background: var(--status-pill-bg);
-  border-radius: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.artifact::after {
+  content: "";
+  position: absolute;
+  left: 140px;
+  right: 140px;
+  top: 50%;
+  height: 1px;
+  background: repeating-linear-gradient(to right, var(--text-muted), var(--text-muted) 1px, transparent 1px, transparent 3px);
+  opacity: 0.2;
+}
+
+.artifact span {
+  position: relative;
+  z-index: 1;
+  background: var(--status-pill-bg);
+  padding-right: 12px;
+}
+
+.artifact strong {
+  position: relative;
+  z-index: 1;
+  background: var(--status-pill-bg);
+  padding-left: 12px;
 }
 
 .results-key-value-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.results-key-value-card {
+  background: var(--status-pill-bg);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.results-key-value-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.results-key-value-card span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.results-key-value-card strong {
+  font-size: 1.1rem;
+  font-weight: 650;
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Raw Results styles */
+.raw-results button {
+  transition: all 0.2s ease;
+}
+
+.raw-results button:hover {
+  background: var(--border) !important;
+  border-color: var(--accent) !important;
+}
+
+.raw-results button span:last-child {
+  color: var(--accent);
+  opacity: 0.8;
+  font-size: 0.7rem;
 }
 
 /* New Results Header Formatting */
 .results-header-summary {
   background-color: var(--card-bg);
-  padding: var(--spacing-24);
+  padding: 32px; /* Increased padding for breathing room */
   border-radius: 12px;
   border: 1px solid var(--border);
   margin-bottom: var(--spacing-24);
@@ -146,9 +221,10 @@
 
 .results-header-row {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 120px 1fr; /* Increased label width to prevent value crowding */
   align-items: center;
-  gap: var(--spacing-12);
+  gap: var(--spacing-16); /* Increased gap */
+  padding: 8px 0; /* Added vertical padding between rows */
 }
 
 .results-header-row .label {

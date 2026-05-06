@@ -56,17 +56,9 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
-function isRenderablePlotSource(value: string): boolean {
-  return (
-    value.startsWith('data:image/') ||
-    value.startsWith('blob:') ||
-    value.startsWith('http://') ||
-    value.startsWith('https://') ||
-    value.startsWith('/')
-  );
-}
-
 const ResultsViewer: React.FC<ResultsViewerProps> = ({ status, onApplyOptimized }) => {
+  const [showRawResults, setShowRawResults] = React.useState(false);
+
   if (!status) {
     return (
       <div className="results-viewer results-viewer-placeholder">
@@ -120,9 +112,6 @@ console.log('Plots:', plots);
     ? Object.entries(optimizedParametersSource)
     : [];
 
-  const historySource = results?.history;
-  const historyLength = Array.isArray(historySource) ? historySource.length : 0;
-
   const resultError =
     typeof status.error === 'string' && status.error.trim().length > 0
       ? status.error
@@ -138,7 +127,6 @@ console.log('Plots:', plots);
       <section className="results-header-summary">
         <div className="panel-heading">
           <div>
-            <span className="panel-eyebrow">RUN SNAPSHOT</span>
             <h2>{mode === 'optimize' ? 'OPTIMIZATION RESULTS' : 'SIMULATION RESULTS'}</h2>
           </div>
         </div>
@@ -201,16 +189,22 @@ console.log('Plots:', plots);
 
       {metrics.length > 0 && (
         <section className="metrics-summary">
-          <div className="section-header">
-            <h4>PERFORMANCE METRICS</h4>
-          </div>
           <div className="metrics-grid">
-            {metrics.map(([key, value]) => (
-              <div key={key} className="metric-item">
-                <span className="metric-label">{formatLabel(key)}</span>
-                <strong className="metric-value">{formatValue(value)}</strong>
-              </div>
-            ))}
+            {metrics.map(([key, value]) => {
+              // Skip redundant "Fail" status strings and specific ignored metrics
+              const lowerValue = String(value).toLowerCase();
+              const lowerKey = key.toLowerCase();
+              
+              if (lowerValue === 'fail') return null;
+              if (lowerKey === 'gain_db' || lowerKey === 'phase_margin_deg') return null;
+              
+              return (
+                <div key={key} className="metric-item">
+                  <span className="metric-label">{formatLabel(key)}</span>
+                  <strong className="metric-value">{formatValue(value)}</strong>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -239,12 +233,12 @@ console.log('Plots:', plots);
             </div>
           </div>
           <div className="artifact">
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>BEST COST</span>
-            <strong style={{ color: 'var(--accent)' }}>{formatValue(results?.best_cost)}</strong>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>BEST COST</span>
+            <strong style={{ color: 'var(--accent)', fontSize: '1rem' }}>{formatValue(results?.best_cost)}</strong>
           </div>
           <div className="artifact">
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ITERATIONS</span>
-            <strong>{formatValue(results?.iterations)}</strong>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ITERATIONS</span>
+            <strong style={{ fontSize: '1rem' }}>{formatValue(results?.iterations)}</strong>
           </div>
           {optimizedParameters.length > 0 && (
             <div className="results-key-value-grid">
@@ -261,70 +255,63 @@ console.log('Plots:', plots);
 
       {checks.length > 0 && (
         <section className="artifact-list">
-          <div className="section-header">
-            <h4>CHECKS</h4>
-          </div>
-          {checks.map(([key, value]) => (
-            <div key={key} className="artifact">
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{formatLabel(key)}</span>
-              <strong>{formatValue(value)}</strong>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* {plots.length > 0 && (
-        <section className="plots-section">
-          <div className="section-header">
-            <h4>Plots</h4>
-            <span>{plots.length} asset{plots.length === 1 ? '' : 's'}</span>
-          </div>
-          <div className="plots-gallery">
-            {plots.map((plot, index) => (
-              <div key={`${plot}-${index}`} className="plot-container">
-               
-                {isRenderablePlotSource(plot) ? (
-                  <img className="result-plot" src={plot} alt={`Result plot ${index + 1}`} />
-                ) : (
-                  <div className="plot-unavailable">
-                    <strong>Preview unavailable</strong>
-                    <p>The backend returned a filesystem path, so this plot is available in the download bundle.</p>
-                  </div>
-                )}
-                <p className="plot-caption">{plot.split('/').pop() ?? `Plot ${index + 1}`}</p>
+          {checks.map(([key, value]) => {
+            const lowerValue = String(value).toLowerCase();
+            const lowerKey = key.toLowerCase();
+            
+            if (lowerValue === 'fail') return null;
+            if (lowerKey === 'gain_db' || lowerKey === 'phase_margin_deg') return null;
+            
+            return (
+              <div key={key} className="artifact">
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{formatLabel(key)}</span>
+                <strong>{formatValue(value)}</strong>
               </div>
-            ))}
-          </div>
-        </section>
-      )} */}
-
-      {(netlists.length > 0 || plots.length > 0) && (
-        <section className="artifact-list">
-          <div className="section-header">
-            <h4>ARTIFACTS</h4>
-          </div>
-          {netlists.map(([key, value]) => (
-            <div key={key} className="artifact">
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{formatLabel(key)}</span>
-              <strong>SPICE NETLIST</strong>
-            </div>
-          ))}
-          {plots.map((plot, index) => (
-            <div key={`${plot}-artifact-${index}`} className="artifact">
-              <span>{`PLOT ${index + 1}`}</span>
-              <strong>{plot.split('/').pop() ?? plot}</strong>
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 
       {hasStructuredResults && (
-        <section className="raw-results">
-          <div className="section-header">
-            <h4>Raw Results</h4>
-            <span>Backend payload</span>
-          </div>
-          <pre>{JSON.stringify(results, null, 2)}</pre>
+        <section className="raw-results" style={{ marginTop: '24px' }}>
+          <button 
+            className="dashboard-secondary-action"
+            style={{ 
+              width: '100%', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              padding: '12px 16px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              background: 'var(--status-pill-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              color: 'var(--text-main)',
+              cursor: 'pointer'
+            }}
+            onClick={() => setShowRawResults(!showRawResults)}
+          >
+            <span>Raw Results Payload</span>
+            <span>{showRawResults ? '▲' : '▼'}</span>
+          </button>
+          
+          {showRawResults && (
+            <pre style={{ 
+              marginTop: '12px', 
+              background: 'var(--background)', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border)',
+              fontSize: '0.8rem',
+              overflow: 'auto',
+              maxHeight: '400px'
+            }}>
+              {JSON.stringify(results, null, 2)}
+            </pre>
+          )}
         </section>
       )}
     </div>

@@ -178,7 +178,6 @@ class PipelineExecutor:
                 PipelineExecutor.processes[process_id]["status"] = ProcessStatus.COMPLETED
                 PipelineExecutor.processes[process_id]["results"] = {
                     "mode": "optimize",
-                    "best_assignment": opt_result.best_assignment,
                     "optimized_parameters": opt_result.best_assignment,
                     "metrics": opt_result.best_metrics,
                     "best_cost": opt_result.best_cost,

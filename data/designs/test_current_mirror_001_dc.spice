@@ -1,4 +1,4 @@
-* Parametric Transient Analysis for 711f373f-a8ab-41c2-931f-78776c145f17_current_mirror
+* Parametric DC Analysis for current_mirror
 .options compat=ps
 .options reltol=1e-3 gmin=1e-12 scale=1u
 .lib "/opt/sky130_pdk/sky130A/libs.tech/ngspice/sky130.lib.spice" tt
@@ -10,7 +10,9 @@
 
 * Computed Parameters
 .param length = {clampL(0.5)}
-.param width = {clampW(2)}
+.param width = {clampW(2.0)}
+.param w = {clampW(2.0)}
+.param l = {clampL(0.5)}
 
 * Circuit Implementation
 * Simple Current Mirror Test Circuit
@@ -21,8 +23,6 @@
 * @DC_EXPR: i(vmeas)
 
 * Parameters
-.param w = 2u
-.param l = 0.5u
 
 * Supply
 Vdd vdd 0 1.8
@@ -42,12 +42,12 @@ Cout vout 0 1p
 * Analysis
 
 
-* Transient Analysis
-.tran 1n 30u
+* DC Sweep Analysis (Extracted)
+.dc Iref 1u 200u 1u
 .control
 set ngbehavior=hs
-run
 set filetype=ascii
-wrdata 711f373f-a8ab-41c2-931f-78776c145f17_tran.csv i(vmeas)
+run
+wrdata test_current_mirror_001_dc_sweep.csv i(vmeas)
 .endc
 .end

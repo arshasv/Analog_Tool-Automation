@@ -6,93 +6,111 @@
 
 .parameter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--sp-6);
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 24px;
 }
 
 .parameter-card {
   background: var(--card-bg) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 4px !important;
-  padding: var(--sp-5) !important;
+  border-radius: 8px !important; /* Increased for better aesthetic */
+  padding: 24px !important; /* Increased padding to fix "touching" issue */
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
-  transition: border-color var(--transition-speed);
+  gap: 20px; /* Increased gap between info and inputs */
+  transition: all var(--transition-speed);
 }
 
 .parameter-card:hover {
   border-color: var(--accent) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .parameter-card.full-width {
   grid-column: 1 / -1;
-  max-width: 656px;
+  max-width: 100%; /* Changed from 656px to match grid alignment */
 }
 
 .param-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 4px; /* Space before inputs */
 }
 
 .param-name {
-  font-size: 0.9375rem;
+  font-size: 1rem; /* Slightly larger */
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 650;
+  text-transform: capitalize;
 }
 
 .param-type {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
 }
 
 .badge-free {
-  font-size: 0.625rem;
-  background: rgba(244, 178, 63, 0.1);
-  color: #f4b23f;
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-weight: 600;
+  font-size: 0.6rem;
+  background: rgba(var(--accent-rgb, 244, 178, 63), 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb, 244, 178, 63), 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .param-inputs-row, .targets-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--sp-4);
+  gap: 24px; /* Increased gap between input columns */
 }
 
 .param-input-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px; /* Standardized gap */
+  padding: 0; /* Removing the previous hacky padding */
 }
 
 .param-input-container label {
-  font-size: 0.65rem;
+  font-size: 0.725rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .dashboard-input {
-  height: 38px;
-  padding: 0 var(--sp-3);
-  font-size: 0.8125rem;
+  height: 42px; /* Slightly taller for modern feel */
+  padding: 0 16px; /* Better horizontal padding */
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 6px !important;
 }
 
 .json-preview {
-  margin-top: var(--sp-8);
+  margin-top: 32px;
   border-top: 1px solid var(--border);
-  padding-top: var(--sp-6);
+  padding-top: 24px;
 }
 
 .param-input-container input {
   background: transparent !important;
   border: 1px solid var(--border) !important;
+  transition: border-color 0.2s;
+}
+
+.param-input-container input:focus {
+  border-color: var(--accent) !important;
+  outline: none;
+}
   color: var(--text-main) !important;
   padding: 0 var(--sp-3) !important;
   height: 38px !important;
