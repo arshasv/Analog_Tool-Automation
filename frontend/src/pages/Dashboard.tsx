@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Home, ChevronRight, Play, LayoutGrid } from 'lucide-react';
 import api, { StatusResponse } from '../services/api';
 import './Dashboard.css';
 import FileUploader from '../components/FileUploader';
@@ -26,10 +28,15 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [epochs, setEpochs] = useState<number>(30);
+  const [epochInput, setEpochInput] = useState<string>('30');
   const [activeTab, setActiveTab] = useState<'workflow' | 'results'>('workflow');
   const [optimizedResults, setOptimizedResults] = useState<Record<string, number> | null>(null);
   const [shouldAutoRun, setShouldAutoRun] = useState(false);
+
+  // Automatically scroll to top when opening/navigating dashboard
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Auto-run trigger for applied optimization values
   useEffect(() => {
@@ -218,7 +225,8 @@ const Dashboard: React.FC = () => {
       }
 
       // Epoch Validation
-      if (epochs < 1 || epochs > 200) {
+      const epochVal = parseInt(epochInput);
+      if (isNaN(epochVal) || epochVal < 1 || epochVal > 200) {
         setError("Epoch value must be between 1 and 200.");
         return;
       }
@@ -237,7 +245,7 @@ const Dashboard: React.FC = () => {
       let res;
       if (mode === 'optimize') {
         const optPayload = {
-          epochs: epochs,
+          epochs: parseInt(epochInput) || 30,
           target_current: paramValues['target_current'] !== undefined ? parseSpiceValue(paramValues['target_current']) : undefined,
           target_gain: paramValues['target_gain'] !== undefined ? parseSpiceValue(paramValues['target_gain']) : undefined,
           params: Object.fromEntries(
@@ -272,22 +280,24 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard">
       <div className="dashboard-shell">
-        <div className="nav-toggle">
-           <button 
-             className={activeTab === 'workflow' ? 'active' : ''} 
-             onClick={() => setActiveTab('workflow')}
-           >
-             Workflow
-           </button>
-           <button 
-             className={activeTab === 'results' ? 'active' : ''} 
-             onClick={() => setActiveTab('results')}
-           >
-             Results
-           </button>
+        <div className="dashboard-nav-header">
+          <div className="nav-toggle" style={{ border: 'none', marginBottom: 0, width: 'auto' }}>
+            <button 
+              className={activeTab === 'workflow' ? 'active' : ''} 
+              onClick={() => setActiveTab('workflow')}
+            >
+              Workflow
+            </button>
+            <button 
+              className={activeTab === 'results' ? 'active' : ''} 
+              onClick={() => setActiveTab('results')}
+            >
+              Results
+            </button>
+          </div>
         </div>
 
-        <aside className="dashboard-kpi-bar">
+        <aside className="dashboard-kpi-bar" style={{ paddingBottom: '2rem' }}>
           <div className="kpi-item">
             <label className="label-uppercased">Workflow ID</label>
             <span className="mono">{processId ? processId : '---'}</span>
@@ -312,10 +322,27 @@ const Dashboard: React.FC = () => {
               <article className="dashboard-panel">
                 <div className="panel-heading">
                   <div>
-                    <h2>Circuit file</h2>
+                    <h2>Circuit upload</h2>
                   </div>
                 </div>
                 <FileUploader onFileSelect={handleFileSelect} onRemoveFile={handleRemoveFile} selectedFile={file} />
+                
+                <div className="simulate-optimize-toggle">
+                  <div className="mode-toggle-group">
+                    <button 
+                      className={`mode-toggle-button ${mode === 'simulate' ? 'mode-toggle-button-active' : ''}`}
+                      onClick={() => setMode('simulate')}
+                    >
+                      SIMULATE
+                    </button>
+                    <button 
+                      className={`mode-toggle-button ${mode === 'optimize' ? 'mode-toggle-button-active' : ''}`}
+                      onClick={() => setMode('optimize')}
+                    >
+                      OPTIMIZE
+                    </button>
+                  </div>
+                </div>
               </article>
 
               {loading && <div className="loading-overlay">Processing...</div>}
@@ -349,16 +376,24 @@ const Dashboard: React.FC = () => {
                   <div className="param-input-container">
                     <label>Epochs (Iterations)</label>
                     <input
-                      type="number"
+                      type="text"
                       className={`dashboard-input ${error && error.includes('Epoch value must be between 1 and 200.') ? 'input-error' : ''}`}
-                      value={epochs}
-                      min={1}
-                      max={200}
+                      value={epochInput}
                       onChange={(e) => {
-                        setEpochs(parseInt(e.target.value) || 0);
+                        setEpochInput(e.target.value);
                         if (error && error.includes('Epoch value must be between 1 and 200.')) setError(null);
                       }}
+                      onBlur={() => {
+                        const val = parseInt(epochInput);
+                        if (!isNaN(val)) {
+                          if (val < 1) setEpochInput('1');
+                          if (val > 200) setEpochInput('200');
+                        } else if (epochInput !== '') {
+                          setEpochInput('30');
+                        }
+                      }}
                       style={{ width: '100px' }}
+                      placeholder="Ex: 30"
                     />
                     {error && error.includes('Epoch value must be between 1 and 200.') && (
                       <div className="input-error-message" style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: '4px', fontWeight: 'bold' }}>
@@ -372,95 +407,89 @@ const Dashboard: React.FC = () => {
                 </article>
               )}
 
-              <article className="dashboard-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>Mode selection</h2>
-                  </div>
-                </div>
-                <div className="mode-toggle-group">
+              {params.length > 0 && (
+                <div className="dashboard-sticky-actions">
                   <button 
-                    className={`mode-toggle-button ${mode === 'simulate' ? 'mode-toggle-button-active' : ''}`}
-                    onClick={() => setMode('simulate')}
+                    className="dashboard-primary-action" 
+                    onClick={handleRun}
+                    disabled={!file || loading || status?.status === 'RUNNING' || status?.status === 'PENDING'}
+                    style={{ flex: 2 }}
                   >
-                    SIMULATE
-                  </button>
-                  <button 
-                    className={`mode-toggle-button ${mode === 'optimize' ? 'mode-toggle-button-active' : ''}`}
-                    onClick={() => setMode('optimize')}
-                  >
-                    OPTIMIZE
-                  </button>
-                </div>
-                <button 
-                  className="dashboard-primary-action" 
-                  onClick={handleRun}
-                  disabled={!file || loading || status?.status === 'RUNNING' || status?.status === 'PENDING'}
-                >
-                   {loading || status?.status === 'RUNNING' || status?.status === 'PENDING' 
-                    ? (loading ? 'STARTING...' : 'RUNNING...') 
-                    : `RUN ${mode.toUpperCase()}`}
-                </button>
-
-                {/* LIVE STATUS component placed directly below the run button */}
-                {processId && (
-                  <article className="dashboard-panel" style={{ marginTop: '1.5rem', borderLeft: '4px solid var(--accent)' }}>
-                    <div className="panel-heading" style={{ marginBottom: '1rem' }}>
-                      <div>
-                        <span className="panel-eyebrow">LIVE STATUS</span>
-                        <h2 style={{ fontSize: '1rem', wordBreak: 'break-all' }}>
-                          ID : {file ? file.name : 'Unknown'}_{processId.slice(0, 8)}
-                        </h2>
-                      </div>
-                      <span className={`results-status-pill results-status-pill-${status?.status.toLowerCase()}`}>
-                        {status?.status ? status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase() : ''}
-                      </span>
-                    </div>
-
-                    <div className="status-timeline" style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '0.85rem' }}>
-                      {status && (
-                        <div className="status-update" style={{ display: 'flex', gap: '12px', padding: '8px 0' }}>
-                          <span className="muted">{new Date(status.updated_at).toLocaleTimeString()}</span>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <strong style={{ color: 'var(--accent)' }}>{status.status}</strong>
-                            {status.progress !== undefined && (
-                              <div style={{ width: '100%', background: 'var(--status-pill-bg)', height: '4px', borderRadius: '2px', marginTop: '4px' }}>
-                                <div style={{ width: `${status.progress}%`, background: 'var(--accent)', height: '100%', borderRadius: '2px' }} />
-                              </div>
-                            )}
-                          </div>
+                    {loading || status?.status === 'RUNNING' || status?.status === 'PENDING' 
+                      ? (loading ? 'STARTING...' : 'RUNNING...') 
+                      : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <Play size={18} fill="currentColor" />
+                          <span>RUN {mode.toUpperCase()}</span>
                         </div>
                       )}
-                      
-                      {/* Filtering out "Worker update received" and showing meaningful logs */}
-                      <div className="status-logs">
-                        {status?.status === 'RUNNING' && <p style={{ margin: '4px 0' }}>{mode === 'optimize' ? 'HEURISTIC SEARCH IN PROGRESS...' : 'CALCULATING OPERATING POINT...'}</p>}
-                        {status?.status === 'COMPLETED' && <p style={{ margin: '4px 0', color: 'var(--success)' }}>EXECUTION SUCCESSFUL.</p>}
-                        {status?.status === 'FAILED' && <p style={{ margin: '4px 0', color: 'var(--error)' }}>{status.error || 'ANALYSIS FAILED.'}</p>}
-                      </div>
-                    </div>
+                  </button>
 
-                    {(status?.status === 'COMPLETED' || status?.status === 'SUCCESS' || status?.status === 'FAILED') && (
-                      <button 
+                  <button 
+                    className="dashboard-secondary-action"
+                    onClick={() => setActiveTab('results')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <LayoutGrid size={18} />
+                      <span>RESULTS</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* LIVE STATUS component moved out and simplified */}
+              {processId && (
+                <article className="dashboard-panel">
+                  <div className="panel-heading" style={{ marginBottom: '1.5rem' }}>
+                    <div>
+                      <h2>LIVE STATUS</h2>
+                    </div>
+                    <span className={`results-status-pill results-status-pill-${status?.status.toLowerCase()}`}>
+                      {status?.status ? status.status.charAt(0).toUpperCase() + status.status.slice(1).toLowerCase() : ''}
+                    </span>
+                  </div>
+
+                  <div className="status-timeline" style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '0.85rem' }}>
+                    <div style={{ marginBottom: '1rem', wordBreak: 'break-all' }}>
+                      <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                        ID : {file ? file.name : 'Unknown'}_{processId.slice(0, 8)}
+                      </strong>
+                    </div>
+                    {status && (
+                      <div className="status-update" style={{ display: 'flex', gap: '12px', padding: '8px 0' }}>
+                        <span className="muted">{new Date(status.updated_at).toLocaleTimeString()}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <strong style={{ color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{status.status}</strong>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="status-logs">
+                      {status?.status === 'RUNNING' && <p style={{ margin: '4px 0' }}>{mode === 'optimize' ? 'HEURISTIC SEARCH IN PROGRESS...' : 'CALCULATING OPERATING POINT...'}</p>}
+                      {status?.status === 'COMPLETED' && <p style={{ margin: '4px 0', color: 'var(--success)' }}>EXECUTION SUCCESSFUL.</p>}
+                      {status?.status === 'FAILED' && <p style={{ margin: '4px 0', color: 'var(--error)' }}>{status.error || 'ANALYSIS FAILED.'}</p>}
+                    </div>
+                  </div>
+
+                  {(status?.status === 'COMPLETED' || status?.status === 'SUCCESS' || status?.status === 'FAILED') && (
+                    <button 
                         className="dashboard-primary-action"
-                        style={{ marginTop: '1rem', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', padding: '8px' }}
+                        style={{ marginTop: '1.5rem' }}
                         onClick={() => setActiveTab('results')}
                       >
-                        VIEW RESULTS
+                        RESULTS
                       </button>
                     )}
                   </article>
                 )}
-              </article>
             </div>
 
             <div className="dashboard-secondary-column">
               {optimizedResults && (
-                <article className="dashboard-panel" style={{ border: '1px solid var(--accent)', background: 'var(--status-pill-bg)' }}>
+                <article className="dashboard-panel">
                   <div className="panel-heading">
                     <div>
-                      <span className="panel-eyebrow">OPTIMIZATION</span>
-                      <h2>Best Assignment</h2>
+                      <h2>OPTIMIZED W/L PARAMETERS</h2>
                     </div>
                   </div>
                   <div style={{ margin: '1rem 0' }}>
@@ -479,7 +508,7 @@ const Dashboard: React.FC = () => {
                     className="dashboard-primary-action"
                     onClick={applyOptimizedValues}
                   >
-                    Use Optimized Values
+                    APPLY & SIMULATE
                   </button>
                 </article>
               )}

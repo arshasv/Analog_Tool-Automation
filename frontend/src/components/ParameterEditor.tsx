@@ -109,7 +109,7 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                   className={`dashboard-input ${errors[param.name] ? 'input-error' : ''}`}
                   value={values[param.name] ?? ''}
                   onChange={(e) => onChange(param.name, e.target.value)}
-                  placeholder={String(param.default)}
+                  placeholder={`Ex: ${param.default}`}
                 />
                 {errors[param.name] && (
                   <div className="input-error-message" style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '4px' }}>
@@ -127,7 +127,7 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                       className={`dashboard-input ${errors[`${param.name}_target`] ? 'input-error' : ''}`}
                       value={optimizationParams[param.name]?.target ?? ''}
                       onChange={(e) => onOptParamChange(param.name, 'target', Number(e.target.value))}
-                      placeholder="Goal"
+                      placeholder="Ex: 50"
                     />
                     {errors[`${param.name}_target`] && (
                       <div className="input-error-message" style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '4px' }}>

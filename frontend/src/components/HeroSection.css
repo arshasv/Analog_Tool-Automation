@@ -1,8 +1,8 @@
 .hero {
-  padding: var(--sp-24) var(--container-px);
+  padding: var(--sp-12) var(--container-px) var(--sp-24);
   text-align: center;
   background-color: var(--background);
-  min-height: 70vh;
+  min-height: 60vh;
   display: flex;
   align-items: center;
   justify-content: center;

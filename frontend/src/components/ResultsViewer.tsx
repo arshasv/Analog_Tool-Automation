@@ -205,6 +205,24 @@ console.log('Plots:', plots);
                 </div>
               );
             })}
+            
+            {/* Added standard metric-card style for Best Cost and Iterations when in optimize mode */}
+            {mode === 'optimize' && results && (
+              <>
+                {results.best_cost !== undefined && (
+                  <div className="metric-item highlight-card">
+                    <span className="metric-label">BEST COST</span>
+                    <strong className="metric-value" style={{ color: 'var(--accent)' }}>{formatValue(results.best_cost)}</strong>
+                  </div>
+                )}
+                {results.iterations !== undefined && (
+                  <div className="metric-item">
+                    <span className="metric-label">ITERATIONS</span>
+                    <strong className="metric-value">{formatValue(results.iterations)}</strong>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
       )}
@@ -212,43 +230,38 @@ console.log('Plots:', plots);
       {mode === 'optimize' && (
         <section className="artifact-list">
           <div className="section-header">
-            <h4>OPTIMIZATION SUMMARY</h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {optimizedParameters.length > 0 && onApplyOptimized && (
-                <button 
-                  className="dashboard-primary-action"
-                  style={{ 
-                    padding: '4px 12px', 
-                    fontSize: '0.75rem', 
-                    margin: 0,
-                    height: 'auto',
-                    background: 'var(--accent)',
-                    color: '#FFFFFF'
-                  }}
-                  onClick={() => onApplyOptimized(isRecord(optimizedParametersSource) ? (optimizedParametersSource as Record<string, any>) : {})}
-                >
-                  APPLY & SIMULATE
-                </button>
-              )}
-            </div>
+            <h2>OPTIMIZED W/L PARAMETERS</h2>
           </div>
-          <div className="artifact">
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>BEST COST</span>
-            <strong style={{ color: 'var(--accent)', fontSize: '1rem' }}>{formatValue(results?.best_cost)}</strong>
-          </div>
-          <div className="artifact">
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ITERATIONS</span>
-            <strong style={{ fontSize: '1rem' }}>{formatValue(results?.iterations)}</strong>
-          </div>
+          
           {optimizedParameters.length > 0 && (
-            <div className="results-key-value-grid">
-              {optimizedParameters.map(([key, value]) => (
-                <div key={key} className="results-key-value-card">
-                  <span>{formatLabel(key)}</span>
-                  <strong>{formatValue(value)}</strong>
+            <>
+              <div className="results-key-value-grid optimized-wl-grid">
+                {optimizedParameters.map(([key, value]) => (
+                  <div key={key} className="results-key-value-card wl-card">
+                    <span className="wl-label">{formatLabel(key)}</span>
+                    <strong className="wl-value">{formatValue(value)}</strong>
+                  </div>
+                ))}
+              </div>
+              
+              {onApplyOptimized && (
+                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-start' }}>
+                  <button 
+                    className="dashboard-primary-action"
+                    style={{ 
+                      padding: '12px 24px', 
+                      fontSize: '0.875rem', 
+                      margin: 0,
+                      width: 'auto',
+                      minWidth: '200px'
+                    }}
+                    onClick={() => onApplyOptimized(isRecord(optimizedParametersSource) ? (optimizedParametersSource as Record<string, any>) : {})}
+                  >
+                    APPLY & SIMULATE
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </section>
       )}

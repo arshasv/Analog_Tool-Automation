@@ -52,28 +52,72 @@
   margin: 0;
 }
 
+.file-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
 .remove-file-button {
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: 4px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all var(--transition-speed);
-  margin-top: var(--sp-2);
+  font-weight: 600;
+  width: fit-content;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: normal;
+  margin-top: 0;
+}
+
+.remove-file-button.secondary {
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border: 1px solid var(--border);
 }
 
 .remove-file-button:hover {
-  border-color: #ff5555;
-  color: #ff5555;
-  background: rgba(255, 85, 85, 0.05);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.remove-file-button.secondary:hover {
+  background: var(--status-pill-bg);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Hide original card since we use consolidated view */
 .selected-file-card {
   display: none;
+}
+
+.remove-file-icon-button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.remove-file-icon-button:hover {
+  background: var(--status-pill-bg);
+  color: #ff5555;
+  border-color: #ff5555;
+  transform: rotate(90deg);
+}
+
+.file-dropzone-content {
+  width: 100%;
 }

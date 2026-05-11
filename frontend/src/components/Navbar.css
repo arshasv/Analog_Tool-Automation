@@ -88,3 +88,24 @@
   line-height: 1;
   display: block;
 }
+
+.navbar-home-icon-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--status-pill-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.navbar-home-icon-link:hover {
+  border-color: var(--accent);
+  background-color: var(--border);
+  color: var(--accent);
+  transform: translateY(-1px);
+}

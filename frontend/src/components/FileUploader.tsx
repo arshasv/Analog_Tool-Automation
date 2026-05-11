@@ -1,5 +1,6 @@
 import React from 'react';
 import './FileUploader.css';
+import { Upload, X } from 'lucide-react';
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
@@ -51,18 +52,25 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect, onRemoveFile,
           onChange={handleChange}
           accept=".py,.spice"
         />
-        <div className="file-dropzone-icon">{selectedFile ? '✓' : '+'}</div>
+        <div className="file-dropzone-icon">
+          {selectedFile ? <Upload size={44} strokeWidth={1.5} /> : <Upload size={44} strokeWidth={1.5} />}
+        </div>
         <div className="file-dropzone-content">
-          <strong>{selectedFile ? `Uploaded : ${selectedFile.name}` : 'Drop circuit template'}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', width: '100%' }}>
+            <strong>{selectedFile ? `Uploaded : ${selectedFile.name}` : 'Drop circuit template'}</strong>
+            {selectedFile && (
+              <button 
+                className="remove-file-icon-button" 
+                onClick={handleRemove}
+                title="Remove file"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
           <p>{selectedFile ? 'File verified and ready' : 'Supported formats: Python (.py) or SPICE (.spice)'}</p>
         </div>
       </div>
-      
-      {selectedFile && (
-        <button className="remove-file-button" onClick={handleRemove}>
-          Remove and replace file
-        </button>
-      )}
     </div>
   );
 };

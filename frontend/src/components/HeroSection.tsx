@@ -1,7 +1,15 @@
 import { Link } from 'react-router-dom'
 import './HeroSection.css'
+import { toast } from 'react-hot-toast'
 
 export default function HeroSection() {
+  const handleGenerateClick = () => {
+    toast.error('Feature currently under development.', {
+      icon: '⚙️',
+      duration: 3000,
+    });
+  };
+
   return (
     <section className="hero">
       <div className="hero-content">
@@ -12,7 +20,7 @@ export default function HeroSection() {
           <Link to="/dashboard" className="cta-button primary">
             Start Designing
           </Link>
-          <button className="cta-button secondary" onClick={() => alert('Circuit generation feature coming soon')}>
+          <button className="cta-button secondary" onClick={handleGenerateClick}>
             Generate Circuit
           </button>
         </div>
