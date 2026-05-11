@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Home, ChevronRight, Play, LayoutGrid } from 'lucide-react';
+import { Play, LayoutGrid } from 'lucide-react';
 import api, { StatusResponse } from '../services/api';
 import './Dashboard.css';
 import FileUploader from '../components/FileUploader';
 import ParameterEditor from '../components/ParameterEditor';
 import ResultsViewer from '../components/ResultsViewer';
 import ErrorAlert from '../components/ErrorAlert';
-import { parseSpiceValue, isValidSpiceValue } from '../utils/spice';
+import { parseSpiceValue, isValidSpiceValue, requiresPositiveValue, isNegativeValue } from '../utils/spice';
 
 interface Parameter {
   name: string;
@@ -37,6 +36,14 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Scroll to top when showing Results view
+  useEffect(() => {
+    if (activeTab === 'results') {
+      // ensure the results view starts at top
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [activeTab]);
 
   // Auto-run trigger for applied optimization values
   useEffect(() => {
@@ -205,9 +212,17 @@ const Dashboard: React.FC = () => {
       const paramDef = params.find(p => p.name === name);
       const isStringParam = paramDef?.type.toLowerCase() === 'string';
 
-      if (!isStringParam && typeof val === 'string' && val.trim() !== '' && !isValidSpiceValue(val)) {
-        newFieldErrors[name] = "Invalid format. Use numeric values (e.g., 10u, 1.2).";
-        hasErrors = true;
+      if (!isStringParam && typeof val === 'string' && val.trim() !== '') {
+        // Check if valid SPICE format
+        if (!isValidSpiceValue(val)) {
+          newFieldErrors[name] = "Invalid format. Use numeric values (e.g., 10u, 1.2).";
+          hasErrors = true;
+        }
+        // Check if parameter requires positive value (W, L, R, C)
+        else if (requiresPositiveValue(name) && isNegativeValue(val)) {
+          newFieldErrors[name] = `This parameter must be positive. Example: 2.5u (not ${val})`;
+          hasErrors = true;
+        }
       }
     }
 
@@ -217,9 +232,16 @@ const Dashboard: React.FC = () => {
         if (opt.target && !isValidSpiceValue(opt.target)) {
           newFieldErrors[`${name}_target`] = "Invalid target format.";
           hasErrors = true;
+        } else if (opt.target && requiresPositiveValue(name) && isNegativeValue(opt.target)) {
+          newFieldErrors[`${name}_target`] = `Target must be positive for this parameter.`;
+          hasErrors = true;
         }
+        
         if (opt.initial && !isValidSpiceValue(opt.initial)) {
           newFieldErrors[name] = "Invalid initial format.";
+          hasErrors = true;
+        } else if (opt.initial && requiresPositiveValue(name) && isNegativeValue(opt.initial)) {
+          newFieldErrors[name] = `Initial value must be positive. Example: 2.5u (not ${opt.initial})`;
           hasErrors = true;
         }
       }
@@ -227,7 +249,7 @@ const Dashboard: React.FC = () => {
       // Epoch Validation
       const epochVal = parseInt(epochInput);
       if (isNaN(epochVal) || epochVal < 1 || epochVal > 200) {
-        setError("Epoch value must be between 1 and 200.");
+        setError("Epoch value must be between 1 and 200. Example: 50");
         return;
       }
     }
@@ -362,6 +384,11 @@ const Dashboard: React.FC = () => {
                     onOptParamChange={handleOptParamChange}
                     mode={mode}
                     errors={fieldErrors}
+                    disableWL={
+                      loading ||
+                      shouldAutoRun ||
+                      ['PENDING', 'RUNNING'].includes((status?.status || '').toUpperCase())
+                    }
                   />
                 </article>
               )}
@@ -370,7 +397,7 @@ const Dashboard: React.FC = () => {
                 <article className="dashboard-panel">
                   <div className="panel-heading">
                     <div>
-                      <h2>Search Strategy</h2>
+                      <h2>Target Specifications</h2>
                     </div>
                   </div>
                   <div className="param-input-container">
@@ -420,7 +447,7 @@ const Dashboard: React.FC = () => {
                       : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                           <Play size={18} fill="currentColor" />
-                          <span>RUN {mode.toUpperCase()}</span>
+                          <span>{mode === 'simulate' ? 'RUN SIMULATION' : 'RUN OPTIMIZATION'}</span>
                         </div>
                       )}
                   </button>
@@ -508,7 +535,7 @@ const Dashboard: React.FC = () => {
                     className="dashboard-primary-action"
                     onClick={applyOptimizedValues}
                   >
-                    APPLY & SIMULATE
+                    APPLY OPTIMIZED VALUES
                   </button>
                 </article>
               )}

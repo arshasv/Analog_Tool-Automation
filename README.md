@@ -88,5 +88,20 @@ xEDA/
 
 ---
 
-## 📄 License
+## � Documentation
+
+For detailed specifications, see:
+
+- **[BACKEND_API_DOCUMENTATION.md](docs/BACKEND_API_DOCUMENTATION.md)** — Backend API contract and services
+- **[UI_DOCUMENTATION.md](docs/UI_DOCUMENTATION.md)** — Frontend implementation spec
+- **[design-kernel.md](docs/design-kernel.md)** — Design system architecture and governance
+- **[components.md](docs/components.md)** — Component library and state contracts
+- **[layout.md](docs/layout.md)** — Layout and responsive behavior
+- **[motion.md](docs/motion.md)** — Motion and transition philosophy
+- **[accessibility.md](docs/accessibility.md)** — Accessibility and WCAG standards
+- **[02-RESEARCH.md](docs/02-RESEARCH.md)** — Product research and UX workflows
+
+---
+
+## �📄 License
 This project is for academic research. Please refer to the SkyWater PDK license for foundry-related usage guidelines.

@@ -14,7 +14,12 @@
 
 ## Overview
 
-xEDA is an AI-Driven Analog Circuit Design Automation Platform that enables circuit simulation and optimization using ngspice. The backend provides RESTful APIs for uploading circuit files, running simulations/optimizations, and retrieving results.
+This document describes the **backend API contract only**. It defines the FastAPI endpoints, request/response schemas, and core services that power xEDA.
+
+For frontend implementation, see [UI_DOCUMENTATION.md](/home/user/Desktop/Adnan/xEDA/docs/UI_DOCUMENTATION.md).
+For product overview and architecture, see [README.md](/home/user/Desktop/Adnan/xEDA/README.md).
+
+xEDA is an Analog Circuit Design Automation Platform that enables circuit simulation and optimization using NGSpice. The backend provides RESTful APIs for uploading circuit files, running simulations/optimizations, and retrieving results.
 
 ---
 
@@ -26,9 +31,10 @@ xEDA is an AI-Driven Analog Circuit Design Automation Platform that enables circ
 | Server | Uvicorn |
 | Database | SQLAlchemy (SQLite/PostgreSQL) |
 | Task Queue | Celery + Redis (configured) |
-| Simulation | NgSpice |
-| Optimization | pymoo, DEAP, optuna, scikit-learn |
-| Frontend | Vue.js/Vite |
+| Simulation | NGSpice via PySpice |
+| Optimization | SciPy Nelder–Mead algorithm |
+| Optimization Discovery | Random sampling (coarse global search) |
+| Frontend | React 18 + TypeScript + Vite (see UI_DOCUMENTATION.md) |
 
 ---
 

@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast'
 
 export default function HeroSection() {
   const handleGenerateClick = () => {
-    toast.error('Feature currently under development.', {
+    toast.error('Coming soon.', {
       icon: '⚙️',
       duration: 3000,
     });

@@ -1,5 +1,12 @@
 # UI (Frontend) Documentation
 
+**Scope:** This document is the canonical specification for the React 18 + TypeScript + Vite frontend.
+
+**Critical References:**
+- **Async UX Behavior:** See [async-ux-philosophy.md](/home/user/Desktop/Adnan/xEDA/docs/async-ux-philosophy.md) for backend-to-UI state mapping (PENDING/RUNNING/COMPLETED/FAILED)
+- **Backend API Contract:** See [BACKEND_API_DOCUMENTATION.md](/home/user/Desktop/Adnan/xEDA/docs/BACKEND_API_DOCUMENTATION.md)
+- **Design System:** See [components.md](/home/user/Desktop/Adnan/xEDA/docs/components.md), [layout.md](/home/user/Desktop/Adnan/xEDA/docs/layout.md), [motion.md](/home/user/Desktop/Adnan/xEDA/docs/motion.md), and [design-kernel.md](/home/user/Desktop/Adnan/xEDA/docs/design-kernel.md)
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Tech Stack](#tech-stack)

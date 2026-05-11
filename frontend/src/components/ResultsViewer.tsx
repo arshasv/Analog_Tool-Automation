@@ -58,6 +58,7 @@ function formatValue(value: unknown): string {
 
 const ResultsViewer: React.FC<ResultsViewerProps> = ({ status, onApplyOptimized }) => {
   const [showRawResults, setShowRawResults] = React.useState(false);
+  const [showFailureDetails, setShowFailureDetails] = React.useState(true);
 
   if (!status) {
     return (
@@ -140,9 +141,21 @@ console.log('Plots:', plots);
           <div className="results-header-row">
             <span className="label">STATUS</span>
             <div className="value">
-              : <span className={`value status-pill ${normalizedStatus}`}>
-                {formatStatusText(status.status)}
-              </span>
+              : {normalizedStatus === 'failed' ? (
+                <details className="failure-dropdown" open={showFailureDetails} onToggle={(event) => setShowFailureDetails((event.currentTarget as HTMLDetailsElement).open)}>
+                  <summary className={`value status-pill ${normalizedStatus}`} aria-label="Failed status and error details">
+                    FAILED
+                  </summary>
+                  <div className="failure-dropdown-body">
+                    <strong>Error</strong>
+                    <p>{resultError || 'No error details returned by the backend.'}</p>
+                  </div>
+                </details>
+              ) : (
+                <span className={`value status-pill ${normalizedStatus}`}>
+                  {formatStatusText(status.status)}
+                </span>
+              )}
             </div>
           </div>
 
@@ -257,7 +270,7 @@ console.log('Plots:', plots);
                     }}
                     onClick={() => onApplyOptimized(isRecord(optimizedParametersSource) ? (optimizedParametersSource as Record<string, any>) : {})}
                   >
-                    APPLY & SIMULATE
+                    APPLY OPTIMIZED VALUES
                   </button>
                 </div>
               )}

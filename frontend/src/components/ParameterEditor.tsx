@@ -1,5 +1,6 @@
 import React from 'react';
 import './ParameterEditor.css';
+import { requiresPositiveValue } from '../utils/spice';
 
 interface Parameter {
   name: string;
@@ -21,6 +22,7 @@ interface ParameterEditorProps {
   optimizationParams: Record<string, OptimizationParams>;
   onOptParamChange: (name: string, field: keyof OptimizationParams, value: number) => void;
   mode: 'simulate' | 'optimize';
+  disableWL?: boolean;
   errors?: Record<string, string>;
 }
 
@@ -31,6 +33,7 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
   optimizationParams,
   onOptParamChange,
   mode,
+  disableWL = false,
   errors = {}
 }) => {
   if (parameters.length === 0) {
@@ -97,6 +100,11 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
             <div className="param-info">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <strong className="param-name">{param.name}</strong>
+                {requiresPositiveValue(param.name) && (
+                  <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+                    (positive only)
+                  </span>
+                )}
               </div>
               <span className="param-type">{param.type}</span>
             </div>
@@ -109,6 +117,7 @@ const ParameterEditor: React.FC<ParameterEditorProps> = ({
                   className={`dashboard-input ${errors[param.name] ? 'input-error' : ''}`}
                   value={values[param.name] ?? ''}
                   onChange={(e) => onChange(param.name, e.target.value)}
+                  disabled={isWLParam(param.name) && disableWL}
                   placeholder={`Ex: ${param.default}`}
                 />
                 {errors[param.name] && (

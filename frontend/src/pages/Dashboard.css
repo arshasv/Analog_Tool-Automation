@@ -133,38 +133,61 @@
   border-color: var(--border-active);
 }
 
-.dashboard-primary-action {
-  background: var(--accent);
-  color: white;
+/* === BASE BUTTON STYLES === */
+.dashboard-primary-action,
+.dashboard-secondary-action,
+.download-link-btn,
+.mode-toggle-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
   border: none;
-  padding: var(--sp-4) var(--sp-6);
-  border-radius: 4px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+/* === ACTION BUTTONS (Primary & Secondary - same styling) === */
+.dashboard-primary-action,
+.dashboard-secondary-action,
+.download-link-btn {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
+  padding: var(--sp-4) var(--sp-6);
+  border-radius: 4px;
   font-size: 0.8125rem;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  width: 100%;
   box-shadow: 0 4px 12px oklch(from var(--accent) l c h / 0.2);
 }
 
-.dashboard-primary-action:hover:not(:disabled) {
+.dashboard-primary-action {
+  width: 100%;
+}
+
+.dashboard-primary-action:hover:not(:disabled),
+.dashboard-secondary-action:hover,
+.download-link-btn:hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px oklch(from var(--accent) l c h / 0.3);
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
-.dashboard-primary-action:active:not(:disabled) {
+.dashboard-primary-action:active:not(:disabled),
+.dashboard-secondary-action:active,
+.download-link-btn:active {
   transform: translateY(0);
 }
 
 .dashboard-primary-action:disabled {
   background: var(--border);
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  border-color: var(--border);
   cursor: not-allowed;
   opacity: 0.6;
   box-shadow: none;
+  transform: none;
 }
 
 .mode-toggle-group {
@@ -176,32 +199,29 @@
   border: 1px solid var(--border);
 }
 
+/* === TOGGLE BUTTONS (Mode: Simulate/Optimize) === */
 .mode-toggle-button {
-  border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   padding: 6px 14px;
   border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.65rem;
   letter-spacing: 0.05em;
 }
 
 .mode-toggle-button:hover:not(.mode-toggle-button-active) {
-  color: var(--text-main);
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .mode-toggle-button:hover:not(.mode-toggle-button-active) {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .mode-toggle-button-active {
   background: var(--accent);
   color: white;
-  box-shadow: 0 2px 8px oklch(from var(--accent) l c h / 0.2);
-}
-
-[data-theme='dark'] .mode-toggle-button:hover:not(.mode-toggle-button-active) {
-  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px oklch(from var(--accent) l c h / 0.2);
 }
 
 .param-input-container label {
@@ -223,10 +243,10 @@
 }
 
 .nav-toggle button {
-  background: transparent !important;
+  background: transparent;
   border: none;
   padding: var(--sp-3) var(--sp-6);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
@@ -237,15 +257,20 @@
   z-index: 1;
 }
 
-.nav-toggle button.active {
-    background: transparent !important;
-    color: var(--text-main);
-    border-bottom-color: var(--accent);
-    font-weight: 600;
+.nav-toggle button:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
 }
 
-.nav-toggle button:hover:not(.active) {
-  color: var(--text-main);
+[data-theme='dark'] .nav-toggle button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-toggle button.active {
+    background: transparent;
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
 }
 
 .muted {
@@ -351,27 +376,7 @@
 }
 
 .dashboard-secondary-action {
-  background: var(--accent);
-  color: white;
-  border: 1px solid var(--accent);
-  padding: var(--sp-4) var(--sp-6);
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
   flex: 1;
-}
-
-.dashboard-secondary-action:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px oklch(from var(--accent) l c h / 0.3);
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
 }
 
 .simulate-optimize-toggle {

@@ -38,6 +38,33 @@ export function isValidSpiceValue(value: string | number): boolean {
  * Parses a SPICE-style value string into a number.
  * If input is already a number, returns it.
  */
+/**
+ * Checks if a parameter name requires a positive value only (W, L, R, C, etc.).
+ * @param paramName The parameter name to check
+ */
+export function requiresPositiveValue(paramName: string): boolean {
+  const lower = paramName.toLowerCase();
+  // W, L, Width, Length, R, C (and variants like Rx, Cx, etc.)
+  return /^[wl]|width|length|^r[0-9]*$|^c[0-9]*$/.test(lower);
+}
+
+/**
+ * Checks if a SPICE value is negative (physically invalid for W, L, R, C).
+ * @param value The SPICE value string to check
+ */
+export function isNegativeValue(value: string | number): boolean {
+  if (typeof value === 'number') return value < 0;
+  if (!value) return false;
+
+  const trimmed = value.trim();
+  // Check if it starts with a minus sign (handles both "-5" and "-0.5u" etc)
+  return trimmed.startsWith('-');
+}
+
+/**
+ * Parses a SPICE-style value string into a number.
+ * If input is already a number, returns it.
+ */
 export function parseSpiceValue(value: string | number): number {
   if (typeof value === 'number') return value;
   if (!value) return 0;

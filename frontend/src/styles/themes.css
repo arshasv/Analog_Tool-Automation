@@ -24,8 +24,16 @@
 [data-theme='light'] {
   --background: oklch(0.99 0.005 240);
   --card-bg: oklch(0.97 0.01 240);
-  --text-main: oklch(0.2 0.02 240);
-  --text-muted: oklch(0.45 0.02 240); /* Slightly darker for better readability */
+  /* Text hierarchy (opacity-based on dark-on-light) */
+  --text-primary: rgba(26,43,60,0.96);   /* 96% */
+  --text-secondary: rgba(26,43,60,0.76); /* 76% */
+  --text-tertiary: rgba(26,43,60,0.55);  /* 55% */
+  --text-disabled: rgba(26,43,60,0.40);  /* 40% */
+
+  /* Backwards-compatible aliases */
+  --text-main: var(--text-primary);
+  --text-muted: var(--text-secondary);
+
   --accent: oklch(0.55 0.18 255); /* More vibrant blue for buttons */
   --border: oklch(0.9 0.01 240);
   --border-active: oklch(0.2 0.02 240);
@@ -41,8 +49,16 @@
 [data-theme='dark'] {
   --background: oklch(0.12 0.01 240); /* Deeper blacks for high contrast */
   --card-bg: oklch(0.16 0.01 240);
-  --text-main: oklch(0.98 0.005 240);
-  --text-muted: oklch(0.75 0.01 240); /* Increased contrast for secondary text */
+  /* Text hierarchy (opacity-based on light-on-dark) */
+  --text-primary: rgba(255,255,255,0.94);   /* 94% */
+  --text-secondary: rgba(255,255,255,0.74); /* 74% */
+  --text-tertiary: rgba(255,255,255,0.55);  /* 55% */
+  --text-disabled: rgba(255,255,255,0.40);  /* 40% */
+
+  /* Backwards-compatible aliases */
+  --text-main: var(--text-primary);
+  --text-muted: var(--text-secondary);
+
   --accent: oklch(0.7 0.12 250);
   --border: oklch(0.32 0.01 240); /* Slightly brighter borders for better separation */
   --border-active: oklch(0.98 0.005 240);
@@ -57,7 +73,7 @@
 
 body {
   background-color: var(--background);
-  color: var(--text-main);
+  color: var(--text-primary);
   transition: background-color var(--transition-speed), color var(--transition-speed);
   margin: 0;
   font-family: var(--font-sans);
@@ -82,8 +98,22 @@ button, input, textarea, select, .navbar-menu a, div, span, p, section {
 /* Global input overrides to ensure visibility */
 input, textarea, select {
   background-color: var(--input-bg) !important;
-  color: var(--text-main) !important;
+  color: var(--text-primary) !important;
   border: 1px solid var(--input-border) !important;
+}
+
+/* Disabled input appearance */
+input:disabled,
+textarea:disabled,
+select:disabled,
+.dashboard-input:disabled,
+.param-input-container input:disabled {
+  /* subtle dim / clearly disabled */
+  background-color: rgba(0,0,0,0.04); /* light dim to show disabled */
+  color: var(--text-disabled) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  cursor: not-allowed;
+  opacity: 1; /* preserve color via variable */
 }
 
 /* Global utility for labels */

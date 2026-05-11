@@ -15,8 +15,14 @@
   --panel: rgba(8, 20, 29, 0.9);
   --panel-strong: rgba(4, 13, 20, 0.85);
   --border: rgba(123, 223, 246, 0.16);
-  --text: #ffffff;
-  --muted: #bdd3e2;
+  /* Text hierarchy (dark theme defaults) */
+  --text-primary: rgba(255,255,255,0.94);
+  --text-secondary: rgba(255,255,255,0.74);
+  --text-tertiary: rgba(255,255,255,0.55);
+  --text-disabled: rgba(255,255,255,0.40);
+  /* Backwards-compatible aliases */
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
   --success: #65d89b;
   --warning: #f4b23f;
   --error: #ff5252;
@@ -32,8 +38,12 @@
   --panel: #ffffff;
   --panel-strong: #f1f7fb;
   --border: rgba(12, 107, 132, 0.12);
-  --text: #1a2b3c;
-  --muted: #5c748a;
+  --text-primary: rgba(26,43,60,0.96);
+  --text-secondary: rgba(26,43,60,0.76);
+  --text-tertiary: rgba(26,43,60,0.55);
+  --text-disabled: rgba(26,43,60,0.40);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
   --accent: #0ea5e9;
   --accent-strong: #0284c7;
   --error: #ef4444;

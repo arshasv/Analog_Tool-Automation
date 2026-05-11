@@ -301,6 +301,47 @@
   color: #ef4444;
 }
 
+.failure-dropdown {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.failure-dropdown > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.failure-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.failure-dropdown-body {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--status-pill-bg);
+  color: var(--text-main);
+  max-width: 520px;
+}
+
+.failure-dropdown-body strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.failure-dropdown-body p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9rem;
+}
+
 .results-header-row .value.status-pill.pending,
 .results-header-row .value.status-pill.running {
   background-color: rgba(59, 130, 246, 0.1);
@@ -313,22 +354,6 @@
 
 .download-link-btn {
   display: inline-block;
-  background: var(--accent);
-  color: white;
-  border: 1px solid var(--accent);
-  padding: 10px 24px;
-  border-radius: 4px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  padding: var(--sp-4) var(--sp-6);
   text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-}
-
-.download-link-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px oklch(from var(--accent) l c h / 0.3);
 }
